@@ -7,6 +7,8 @@ const COUNT_MAX = 3;
 var time = 0;
 var cells = [];
 var cursol = null;
+var startX = 0;
+var moveX = 0;
 var isEnd = false;
 
 // ブロックのパターン
@@ -41,8 +43,14 @@ function init() {
 
             if(document.addEventListener){
                 td.addEventListener("dragend" , onDragEnd);
+                td.addEventListener("touchstart" , onTouchStart);
+                td.addEventListener("touchmove" , onTouchMove);
+                td.addEventListener("touchend" , onTouchEnd);
             }else if(document.attachEvent){
                 td.attachEvent("dragend" , onDragEnd);
+                td.attachEvent("touchstart" , onTouchStart);
+                td.attachEvent("touchmove" , onTouchMove);
+                td.attachEvent("touchend" , onTouchEnd);
             }
             tr.appendChild(td);
         }
@@ -184,6 +192,32 @@ function onDragEnd(event) {
     } else if (event.offsetX < 0 && x > 0) {
         cursol.x = x;
         cursol.y = y;
+        swap(-1);
+    }
+}
+
+function onTouchStart(event) {
+    startX = event.touches[0].pageX;
+    var x = event.target.cellIndex;
+    var y = event.target.parentElement.rowIndex;
+
+    cells[cursol.y][cursol.x].style.border = "0px solid";
+    cells[0][1].style.border = "0px solid";
+
+    cursol.x = x;
+    cursol.y = y;
+
+    cells[y][x].style.border = "5px #808080 solid";
+}
+
+function onTouchMove(event) {
+    moveX = event.changedTouches[0].pageX;
+}
+
+function onTouchEnd(event) {
+    if (startX < moveX && cursol.x < WIDTH - 1) {
+        swap(1);
+    } else if (startX > moveX && cursol.x > 0) {
         swap(-1);
     }
 }
