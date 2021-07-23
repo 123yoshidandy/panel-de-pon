@@ -2,11 +2,10 @@ var tableElement = document.getElementById("field_table");
 
 const HEIGHT = 12;
 const WIDTH = 6;
+const COUNT_MAX = 3;
 
-var count = 0;
+var time = 0;
 var cells = [];
-var next_cells = [];
-var hold_cells = [];
 var cursol = null;
 var isEnd = false;
 
@@ -18,18 +17,18 @@ document.addEventListener("keydown", onKeyDown);
 
 init();
 var timer = setInterval(function () {
-    count++;
-    document.getElementById("time_text").textContent = "time: " + count;
+    time++;
+    document.getElementById("time_text").textContent = "time: " + time;
     document.getElementById("time_text").textContent = cursol.x + ", " + cursol.y;
     if (isEnd) {
         clearInterval(timer);
-        // alert("Game Over");
+        alert("Game Over");
         return;    
     }
-    if (count % 10 == 0) {
+    if (time % 10 == 0) {
         raiseBlock();
     }
-}, 200);
+}, 100);
 
 /* -------------------- ここから関数宣言  -------------------- */
 
@@ -38,6 +37,13 @@ function init() {
         var tr = document.createElement("tr");
         for (var col = 0; col < WIDTH; col++) {
             var td = document.createElement("td");
+            td.draggable = true;
+
+            if(document.addEventListener){
+                td.addEventListener("dragend" , onDragEnd);
+            }else if(document.attachEvent){
+                td.attachEvent("dragend" , onDragEnd);
+            }
             tr.appendChild(td);
         }
         tableElement.appendChild(tr);
@@ -61,53 +67,59 @@ function init() {
     cells[0][1].style.border = "5px #808080 solid";
 }
 
-function fallBlocks() {
-    var result = move(1, 0);
-    if (!result) { // 移動できない≒接地したとき
-        activeBlock = null;
-        isHold = false;
+function deleteBlock() {
+    deleteBlocks = [];
+    for (var y = 0; y < HEIGHT; y++) {
+        for (var x = 0; x < WIDTH; x++) {
+
+            var color = cells[y][x].className;
+            if (color != "") {
+                var count = Math.max(
+                    1 + countBlock(x, y, 1,  0, color) + countBlock(x, y, -1,  0, color),
+                    1 + countBlock(x, y, 0,  1, color) + countBlock(x, y,  0, -1, color)
+                )
+    
+                if (count >= COUNT_MAX) {
+                    deleteBlocks.push([x, y]);
+                }
+            }
+        }
+    }
+
+    for (var point of deleteBlocks) {
+        cells[point[1]][point[0]].className = "";
+    }
+
+    for (var point of deleteBlocks) {
+        fallBlock(point[0], point[1]);
     }
 }
 
-function countBlocks(x, y, dx, dy, className) {
+function countBlock(x, y, dx, dy, color) {
     x += dx;
     y += dy;
-    if (0 <= x < WIDTH && 0 < y <= HEIGHT && cells[y][x].className == className) {
-        return 1 + countBlocks(x, y, dx, dy, className);
+    if (0 <= x && x < WIDTH && 0 <= y && y < HEIGHT && cells[y][x].className == color) {
+        return 1 + countBlock(x, y, dx, dy, color);
     } else {
         return 0;
     }
 }
 
-function deleteBlock() {
-    deleteBlocks = [];
-    for (var row = 0; row < HEIGHT; row++) {
-        for (var col = 0; col < WIDTH; col++) {
-            
-            if (cells[row][col].className === "") {
-                canDelete = false;
-            }
-        }
-
-        if (canDelete) {
-            for (var downRow = row - 1; downRow >= 0; downRow--) {  // ★サイト間違ってる
-                for (var col = 0; col < WIDTH; col++) {
-                    cells[downRow + 1][col].className = cells[downRow][col].className;
-                    cells[downRow][col].className = "";
-                }
-            }
-            row++; // 複数行の削除のために同じ行をもう一度チェック
-        }
+function fallBlock(col, row) {
+    for (var y = row; y >= 1; y--) {
+        cells[y][col].className = cells[y - 1][col].className;
     }
+    cells[0][col].className = "";
+    deleteBlock();
 }
 
 function raiseBlock() {
-    // for (var col = 0; col < WIDTH; col++) {
-    //     if (cells[0][col].class != null) {
-    //         isEnd = true;
-    //         return;
-    //     }
-    // }
+    for (var col = 0; col < WIDTH; col++) {
+        if (cells[0][col].className != "") {
+            isEnd = true;
+            return;
+        }
+    }
 
     for (var row = 0; row < HEIGHT - 1; row++) {
         for (var col = 0; col < WIDTH; col++) {
@@ -119,6 +131,8 @@ function raiseBlock() {
         var newBlock = blocks[Math.floor(Math.random() * blocks.length)];
         cells[HEIGHT - 1][col].className = newBlock;    
     }
+
+    deleteBlock();
 }
 
 function onKeyDown(event) {
@@ -131,7 +145,7 @@ function onKeyDown(event) {
     } else if (event.keyCode === 40) { // "↓"
         move(1, 0);
     } else if (event.keyCode === 16) { // "Shift"
-        swap();
+        swap(1);
     }
 }
 
@@ -146,9 +160,30 @@ function move(dy, dx) {
     cells[cursol.y][cursol.x + 1].style.border = "5px #808080 solid";
 }
 
-function swap() {
+function swap(dx) {
     var temp = cells[cursol.y][cursol.x].className;
-    cells[cursol.y][cursol.x].className = cells[cursol.y][cursol.x + 1].className;
-    cells[cursol.y][cursol.x + 1].className = temp;
+    cells[cursol.y][cursol.x].className = cells[cursol.y][cursol.x + dx].className;
+    cells[cursol.y][cursol.x + dx].className = temp;
+
+    deleteBlock();
+    if (cells[cursol.y][cursol.x].className == "") {
+        fallBlock(cursol.x, cursol.y);
+    }
+    if (cells[cursol.y][cursol.x + dx].className == "") {
+        fallBlock(cursol.x + dx, cursol.y);
+    }
 }
 
+function onDragEnd(event) {
+    var x = event.target.cellIndex;
+    var y = event.target.parentElement.rowIndex;
+    if (event.offsetX >= 0 && x < WIDTH - 1) {
+        cursol.x = x;
+        cursol.y = y;
+        swap(1);
+    } else if (event.offsetX < 0 && x > 0) {
+        cursol.x = x;
+        cursol.y = y;
+        swap(-1);
+    }
+}
