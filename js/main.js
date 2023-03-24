@@ -192,7 +192,13 @@ window.addEventListener('keydown', function(ev) {
         continueFunc = null;
     }
 });
-
+window.addEventListener('keyup', function(ev) {
+    switch (ev.keyCode) {
+        case 88: // X
+            raiseKey = false;
+            break;
+    }
+});
 
 let x; // カーソル位置
 let y;
