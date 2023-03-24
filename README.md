@@ -1,6 +1,6 @@
 # panel-de-pon
 
-https://yoshida-kazuki.github.io/panel-de-pon/
+https://123yoshidandy.github.io/panel-de-pon/
 
 ## Reference
 
