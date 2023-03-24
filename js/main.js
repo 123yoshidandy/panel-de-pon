@@ -14,8 +14,6 @@ const WIDTH = 6;
 const HEIGHT = 12;
 const BLOCK_SIZE = 30;
 const NUM = WIDTH * HEIGHT;
-// イージング
-const easeOutCubic = x => 1 - (1 - x) * (1 - x) * (1 - x);
 // 遷移フレーム数
 const SAWP_FRAME = 4;
 const FALL_FRAME = 8;
@@ -26,6 +24,16 @@ const RELIEF = ['♥', '●', '▼', '◆', '★', '▲'];
 const LIGHT_COLORS = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)', 'rgb(128,0,128)', 'rgb(255,255,0)', 'rgb(0,255,255)'];
 const COLORS = ['rgb(192,0,0)', 'rgb(0,192,0)', 'rgb(0,0,192)', 'rgb(96,0,96)', 'rgb(192,192,0)', 'rgb(0,192,192)'];
 const DARK_COLORS = ['rgb(128,0,0)', 'rgb(0,128,0)', 'rgb(0,0,128)', 'rgb(64,0,64)', 'rgb(128,128,0)', 'rgb(0,128,128)'];
+
+// グローバル変数
+let x; // カーソル位置
+let y;
+let counter;
+let raiseCount;
+let intervalKey;
+let raiseTime;
+let raiseY;
+
 // ブロッククラス
 class Block {
     constructor(type) {
@@ -58,15 +66,11 @@ class Block {
         }
         // 表示上のXオフセット量
     offsetX() {
-            return this.state == SWAPPING_L || this.state == SWAPPING_R ? (this.state == SWAPPING_L ? 1 : -1) * easeOutCubic(this.count / SAWP_FRAME) * BLOCK_SIZE : 0;
+            return this.state == SWAPPING_L || this.state == SWAPPING_R ? (this.state == SWAPPING_L ? 1 : -1) * BLOCK_SIZE : 0;
         }
         // 表示上のYオフセット量
     offsetY() {
             return this.state == FALLING ? this.count * BLOCK_SIZE / FALL_FRAME : 0;
-        }
-        // 表示上のスケール
-    scale() {
-            return this.state == VANISH ? 1.1 : 1.0;
         }
         // 状態更新
     update() {
@@ -102,9 +106,6 @@ class Block {
 const canvas = document.createElement('canvas');
 Object.assign(canvas.style, {
     position: 'absolute',
-    left: '0px',
-    top: '28px',
-    transition: 'filter 0.666s'
 });
 canvas.classList.add('field');
 Object.assign(canvas, { width: BLOCK_SIZE * WIDTH, height: BLOCK_SIZE * HEIGHT });
@@ -117,8 +118,6 @@ Object.assign(game_over.style, {
     position: 'absolute',
     width: `${BLOCK_SIZE * WIDTH}px`,
     height: `${BLOCK_SIZE * HEIGHT}px`,
-    left: '0px',
-    top: '28px',
     lineHeight: `${BLOCK_SIZE * HEIGHT}px`,
     fontSize: `${BLOCK_SIZE}px`
 });
@@ -162,50 +161,63 @@ let rightKey = false;
 let downKey = false;
 let swapKey = false;
 let raiseKey = false;
-window.addEventListener('keydown', function(ev) {
-    switch (ev.keyCode) {
-        case 37: // left
-            leftKey = true;
-            ev.preventDefault();
-            break;
-        case 38: // up
-            upKey = true;
-            ev.preventDefault();
-            break;
-        case 39: // right
-            rightKey = true;
-            ev.preventDefault();
-            break;
-        case 40: // down
-            downKey = true;
-            ev.preventDefault();
-            break;
-        case 90: // Z
-            swapKey = !ev.repeat;
-            break;
-        case 88: // X
-            if (!ev.repeat) raiseKey = true;
-            break;
-    }
-    if (continueFunc && (swapKey || raiseKey)) {
-        continueFunc();
-        continueFunc = null;
-    }
-});
-window.addEventListener('keyup', function(ev) {
-    switch (ev.keyCode) {
-        case 88: // X
-            raiseKey = false;
-            break;
-    }
-});
+if (document.addEventListener) {
+    window.addEventListener('keydown', function(ev) {
+        switch (ev.keyCode) {
+            case 37: // left
+                leftKey = true;
+                ev.preventDefault();
+                break;
+            case 38: // up
+                upKey = true;
+                ev.preventDefault();
+                break;
+            case 39: // right
+                rightKey = true;
+                ev.preventDefault();
+                break;
+            case 40: // down
+                downKey = true;
+                ev.preventDefault();
+                break;
+            case 90: // Z
+                swapKey = !ev.repeat;
+                break;
+            case 88: // X
+                if (!ev.repeat) raiseKey = true;
+                break;
+        }
+        if (continueFunc && (swapKey || raiseKey)) {
+            continueFunc();
+            continueFunc = null;
+        }
+    });
+    window.addEventListener('keyup', function(ev) {
+        switch (ev.keyCode) {
+            case 88: // X
+                raiseKey = false;
+                break;
+        }
+    });
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('touchstart', onMouseDown);
+    canvas.addEventListener('touchend', onMouseUp);
+} else if (document.attachEvent) {
+    td.attachEvent("mousedown", onMouseDown);
+    td.attachEvent("mouseup", onMouseUp);
+    td.attachEvent("touchstart", onMouseDown);
+    td.attachEvent("touchend", onMouseUp);
+}
 
-let x; // カーソル位置
-let y;
-let counter;
-let raiseCount;
-let intervalKey;
-let raiseTime;
+function onMouseDown(ev) {
+    x = Math.min(parseInt(ev.clientX / BLOCK_SIZE - 2.0), 4);
+    y = parseInt((ev.clientY + raiseY) / BLOCK_SIZE - 1.0);
+}
+
+function onMouseUp(ev) {
+    swapKey = !ev.repeat;
+}
 
 // ゲーム初期化
 const resetGame = () => {
@@ -417,15 +429,13 @@ const updateFunc = () => {
     };
     g.clearRect(0, 0, canvas.width, canvas.height);
     g.font = `${BLOCK_SIZE * 0.8}px メイリオ`;
-    let raiseY = Math.floor(BLOCK_SIZE * raiseCount / raiseTime);
+    raiseY = Math.floor(BLOCK_SIZE * raiseCount / raiseTime);
     // ブロック
     for (let x = 0; x < WIDTH; ++x) {
         for (let y = 0; y < HEIGHT; ++y) {
             const b = blocks[x + y * WIDTH];
             if (b.isVisible()) {
-                const scale = b.scale();
-                g.translate((x + 1.0 - scale) * BLOCK_SIZE + b.offsetX(), (y + 1.0 - scale) * BLOCK_SIZE + b.offsetY() - raiseY);
-                g.scale(scale, scale);
+                g.translate(x * BLOCK_SIZE + b.offsetX(), y * BLOCK_SIZE + b.offsetY() - raiseY);
                 g.fillStyle = COLORS[b.type];
                 g.fillRect(0, 0, BLOCK_SIZE, BLOCK_SIZE);
                 g.fillStyle = LIGHT_COLORS[b.type];
