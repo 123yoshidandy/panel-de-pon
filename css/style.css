@@ -1,58 +1,19 @@
+@import url('https://fonts.googleapis.com/css?family=Anton');
 body {
-    background-color: #263238;
+    background: radial-gradient(black 15%, transparent 16%) 0 0, radial-gradient(black 15%, transparent 16%) 8px 8px, radial-gradient(rgba(255, 255, 255, .1) 15%, transparent 20%) 0 1px, radial-gradient(rgba(255, 255, 255, .1) 15%, transparent 20%) 8px 9px;
+    background-color: #282828;
+    background-size: 16px 16px;
+    font-family: 'Anton', sans-serif;
+    font-size: 12px;
+    color: white;
+    user-select: none;
 }
 
-h1 {
-    color: #FFFFFF;
+.field {
+    border: rgba(255, 255, 255, 0.103) 16px solid;
 }
 
-h2 {
-    color: #FFFFFF;
-}
-
-.board {
-    width: 600px; /* 表の幅 */
-    height: 800px; /* 表の高さ */
-    /* 中央揃えにする */
-    margin-left: auto;
-    margin-right: auto;
-    display: flex;
-}
-
-.field_table {
-    width: 400px; /* 表の幅 */
-    height: 800px; /* 表の高さ */
-    /* 中央揃えにする */
-    margin-left: auto;
-    margin-right: auto;
-}
-
-td {
-    width: 10%; /* セルの幅 */
-    height: 5%; /* セルの高さ */
-    background-color: #455A64; /* 背景色 */
-}
-
-.c {
-    background-color: #00BCD4; /* cyan */
-}
-  
-.y {
-    background-color: #FFEB3B; /* yellow */
-}
-  
-.p {
-    background-color: #9C27B0; /* purple */
-}
-  
-.g {
-    background-color: #4CAF50; /* green */
-}
-  
-.r {
-    background-color: #F44336; /* red */
-}
-
-.cursol {
-    border: 2px #808080 solid;
+.message {
+    border: 16px solid rgba(0, 0, 0, 0);
+    text-align: center;
 }
