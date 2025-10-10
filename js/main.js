@@ -12,7 +12,7 @@ const CHECK_FLOOR = 9; // 浮遊終了
 // 寸法
 const WIDTH = 6;
 const HEIGHT = 12;
-const BLOCK_SIZE = 30;
+let BLOCK_SIZE = 30; // 動的に変更可能にする
 const NUM = WIDTH * HEIGHT;
 // 遷移フレーム数
 const SAWP_FRAME = 4;
@@ -131,29 +131,39 @@ const doLayout = () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    // キャンバスの元のサイズ
+    // 画面サイズに基づいて最適なブロックサイズを計算
+    // 縦横それぞれの制約から最適なサイズを決める
+    const maxBlockSizeX = Math.floor((w * 0.9) / WIDTH);
+    const maxBlockSizeY = Math.floor((h * 0.85) / HEIGHT);
+
+    // 最小20px、最大60pxの範囲でブロックサイズを決定
+    BLOCK_SIZE = Math.max(20, Math.min(60, Math.min(maxBlockSizeX, maxBlockSizeY)));
+
+    // キャンバスサイズを更新
     const canvasWidth = BLOCK_SIZE * WIDTH;
     const canvasHeight = BLOCK_SIZE * HEIGHT;
 
-    // 画面に収まるように拡大率を計算（余白を考慮）
-    const scaleX = (w * 0.9) / canvasWidth;
-    const scaleY = (h * 0.8) / canvasHeight;
-    const scale = Math.min(scaleX, scaleY, 2); // 最大2倍まで拡大
-    currentScale = scale; // グローバル変数に保存
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
-    // キャンバスとメッセージの両方をスケーリング
-    canvas.style.transform = `scale(${scale})`;
-    canvas.style.transformOrigin = 'top left';
-    game_over.style.transform = `scale(${scale})`;
-    game_over.style.transformOrigin = 'top left';
+    // GAME OVERメッセージのサイズも更新
+    game_over.style.width = `${canvasWidth}px`;
+    game_over.style.height = `${canvasHeight}px`;
+    game_over.style.lineHeight = `${canvasHeight}px`;
+    game_over.style.fontSize = `${BLOCK_SIZE}px`;
 
-    // スケール後のサイズで中央揃え
-    const scaledWidth = canvasWidth * scale;
-    const scaledHeight = canvasHeight * scale;
-    canvas.style.left = `${(w - scaledWidth) * 0.5}px`;
-    canvas.style.top = `${(h - scaledHeight) * 0.5}px`;
-    game_over.style.left = `${(w - scaledWidth) * 0.5}px`;
-    game_over.style.top = `${(h - scaledHeight) * 0.5}px`;
+    // スケーリングは不要（既に適切なサイズに調整済み）
+    currentScale = 1;
+    canvas.style.transform = 'none';
+    game_over.style.transform = 'none';
+
+    // 中央揃え（borderの32px分を考慮）
+    const totalWidth = canvasWidth + 32;
+    const totalHeight = canvasHeight + 32;
+    canvas.style.left = `${(w - totalWidth) * 0.5}px`;
+    canvas.style.top = `${(h - totalHeight) * 0.5}px`;
+    game_over.style.left = `${(w - totalWidth) * 0.5}px`;
+    game_over.style.top = `${(h - totalHeight) * 0.5}px`;
 };
 window.addEventListener('resize', doLayout);
 doLayout();

@@ -15,9 +15,11 @@ body {
 
 .field {
     border: rgba(255, 255, 255, 0.103) 16px solid;
+    box-sizing: border-box;
 }
 
 .message {
     border: 16px solid rgba(0, 0, 0, 0);
     text-align: center;
+    box-sizing: border-box;
 }
