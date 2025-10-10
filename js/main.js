@@ -33,6 +33,7 @@ let raiseCount;
 let intervalKey;
 let raiseTime;
 let raiseY;
+let currentScale = 1; // 現在の拡大率を保持
 
 // ブロッククラス
 class Block {
@@ -125,14 +126,36 @@ game_over.classList.add('message');
 game_over.innerText = 'GAME OVER';
 document.body.append(game_over);
 
-// 中央レイアウト処理
+// 中央レイアウト処理とスケーリング
 const doLayout = () => {
-    const w = document.body.clientWidth;
-    const h = document.body.clientHeight;
-    canvas.style.left = `${(w - BLOCK_SIZE * WIDTH) * 0.5}px`;
-    game_over.style.left = `${(w - BLOCK_SIZE * WIDTH) * 0.5}px`;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    // キャンバスの元のサイズ
+    const canvasWidth = BLOCK_SIZE * WIDTH;
+    const canvasHeight = BLOCK_SIZE * HEIGHT;
+
+    // 画面に収まるように拡大率を計算（余白を考慮）
+    const scaleX = (w * 0.9) / canvasWidth;
+    const scaleY = (h * 0.8) / canvasHeight;
+    const scale = Math.min(scaleX, scaleY, 2); // 最大2倍まで拡大
+    currentScale = scale; // グローバル変数に保存
+
+    // キャンバスとメッセージの両方をスケーリング
+    canvas.style.transform = `scale(${scale})`;
+    canvas.style.transformOrigin = 'top left';
+    game_over.style.transform = `scale(${scale})`;
+    game_over.style.transformOrigin = 'top left';
+
+    // スケール後のサイズで中央揃え
+    const scaledWidth = canvasWidth * scale;
+    const scaledHeight = canvasHeight * scale;
+    canvas.style.left = `${(w - scaledWidth) * 0.5}px`;
+    canvas.style.top = `${(h - scaledHeight) * 0.5}px`;
+    game_over.style.left = `${(w - scaledWidth) * 0.5}px`;
+    game_over.style.top = `${(h - scaledHeight) * 0.5}px`;
 };
-document.body.onresize = doLayout;
+window.addEventListener('resize', doLayout);
 doLayout();
 
 // ブロック配列を1次元で作成
@@ -212,8 +235,21 @@ if (document.addEventListener) {
 
 function onMouseDown(ev) {
     const rect = canvas.getBoundingClientRect();
-    const mouseX = ev.clientX - rect.left;
-    const mouseY = ev.clientY - rect.top;
+
+    // タッチイベントとマウスイベントを区別
+    let clientX, clientY;
+    if (ev.touches && ev.touches.length > 0) {
+        clientX = ev.touches[0].clientX;
+        clientY = ev.touches[0].clientY;
+    } else {
+        clientX = ev.clientX;
+        clientY = ev.clientY;
+    }
+
+    // スケーリングを考慮した座標計算
+    const mouseX = (clientX - rect.left) / currentScale;
+    const mouseY = (clientY - rect.top) / currentScale;
+
     x = Math.floor(mouseX / BLOCK_SIZE);
     const currentRaiseY = Math.floor(BLOCK_SIZE * raiseCount / raiseTime);
     y = Math.floor((mouseY - BLOCK_SIZE / 2 + currentRaiseY) / BLOCK_SIZE);
