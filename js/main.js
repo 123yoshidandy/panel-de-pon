@@ -2,11 +2,35 @@ import { initRenderer, render, showGameOver, hideGameOver } from './renderer.js'
 import { initInput, raiseKey } from './input.js';
 import { doLayout } from './layout.js';
 import { resetGame, updateGame, gameState } from './game.js';
+import { initTitle } from './title.js';
 
 let continueFunc;
+let gameInitialized = false;
 
 // 初期化
 function init() {
+    // タイトル画面を表示
+    initTitle(() => {
+        startGameFromTitle();
+    });
+}
+
+// タイトル画面からゲームを開始
+function startGameFromTitle() {
+    if (!gameInitialized) {
+        // 初回のみ初期化
+        initGame();
+        gameInitialized = true;
+    }
+
+    // ゲームを開始
+    resetGame();
+    hideGameOver();
+    startGameLoop();
+}
+
+// ゲームの初期化
+function initGame() {
     // 描画の初期化
     const { canvas } = initRenderer();
 
@@ -21,11 +45,6 @@ function init() {
             continueFunc = null;
         }
     });
-
-    // ゲームを開始
-    resetGame();
-    hideGameOver();
-    startGameLoop();
 }
 
 // ゲームループ
