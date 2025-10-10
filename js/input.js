@@ -13,6 +13,7 @@ export let raiseKey = false;
 let touchStartX = null;
 let touchStartY = null;
 let swapDirection = null;
+let accelerateTouchId = null; // 加速用タッチのID
 
 // 入力状態のリセット
 export function resetKeys() {
@@ -70,6 +71,10 @@ export function initInput(canvas, continueCallback) {
     canvas.addEventListener('touchstart', onTouchStart);
     canvas.addEventListener('touchmove', onTouchMove);
     canvas.addEventListener('touchend', onTouchEnd);
+
+    // 画面全体のタッチイベント（加速用）
+    document.addEventListener('touchstart', onDocumentTouchStart);
+    document.addEventListener('touchend', onDocumentTouchEnd);
 }
 
 function onMouseDown(ev) {
@@ -172,4 +177,46 @@ function onTouchEnd(ev) {
     touchStartX = null;
     touchStartY = null;
     swapDirection = null;
+}
+
+// 画面全体のタッチ処理（加速用）
+function onDocumentTouchStart(ev) {
+    // ゲーム画面以外の場所をタッチした場合
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    // 複数のタッチポイントをチェック
+    for (let i = 0; i < ev.touches.length; i++) {
+        const touch = ev.touches[i];
+        const x = touch.clientX;
+        const y = touch.clientY;
+
+        // キャンバスの外側をタッチしているかチェック
+        if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+            // 加速開始
+            accelerateTouchId = touch.identifier;
+            raiseKey = true;
+            break;
+        }
+    }
+}
+
+function onDocumentTouchEnd(ev) {
+    // 離されたタッチをチェック
+    let accelerateTouchEnded = true;
+
+    for (let i = 0; i < ev.touches.length; i++) {
+        if (ev.touches[i].identifier === accelerateTouchId) {
+            accelerateTouchEnded = false;
+            break;
+        }
+    }
+
+    // 加速用のタッチが終了した場合
+    if (accelerateTouchEnded && accelerateTouchId !== null) {
+        accelerateTouchId = null;
+        raiseKey = false;
+    }
 }

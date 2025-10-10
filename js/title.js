@@ -33,6 +33,7 @@ export function initTitle(onStart) {
                     <h3>MOBILE</h3>
                     <p>Swipe : Swap blocks</p>
                     <p>Touch : Move position</p>
+                    <p>Touch outside : Speed up</p>
                 </div>
             </div>
         </div>
