@@ -34,6 +34,10 @@ let intervalKey;
 let raiseTime;
 let raiseY;
 let currentScale = 1; // 現在の拡大率を保持
+let isMobile = false; // モバイルデバイスかどうか
+let touchStartX = null;
+let touchStartY = null;
+let swapDirection = null; // スワイプによる入れ替え方向
 
 // ブロッククラス
 class Block {
@@ -130,6 +134,9 @@ document.body.append(game_over);
 const doLayout = () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
+
+    // モバイルデバイスの判定
+    isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
     // 画面サイズに基づいて最適なブロックサイズを計算
     // 縦横それぞれの制約から最適なサイズを決める
@@ -234,8 +241,9 @@ if (document.addEventListener) {
     });
     canvas.addEventListener('mousedown', onMouseDown);
     canvas.addEventListener('mouseup', onMouseUp);
-    canvas.addEventListener('touchstart', onMouseDown);
-    canvas.addEventListener('touchend', onMouseUp);
+    canvas.addEventListener('touchstart', onTouchStart);
+    canvas.addEventListener('touchmove', onTouchMove);
+    canvas.addEventListener('touchend', onTouchEnd);
 } else if (document.attachEvent) {
     td.attachEvent("mousedown", onMouseDown);
     td.attachEvent("mouseup", onMouseUp);
@@ -270,6 +278,79 @@ function onMouseDown(ev) {
 
 function onMouseUp(ev) {
     swapKey = !ev.repeat;
+}
+
+// タッチイベント処理
+function onTouchStart(ev) {
+    ev.preventDefault();
+    if (ev.touches.length === 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const touch = ev.touches[0];
+
+    touchStartX = (touch.clientX - rect.left) / currentScale;
+    touchStartY = (touch.clientY - rect.top) / currentScale;
+
+    // タッチ位置を取得
+    const touchX = Math.floor((touchStartX - BLOCK_SIZE / 2) / BLOCK_SIZE);
+    const currentRaiseY = Math.floor(BLOCK_SIZE * raiseCount / raiseTime);
+    const touchY = Math.floor((touchStartY - BLOCK_SIZE / 2 + currentRaiseY) / BLOCK_SIZE);
+
+    // タッチ位置を有効範囲内に制限
+    x = Math.max(0, Math.min(touchX, WIDTH - 1));
+    y = Math.max(0, Math.min(touchY, HEIGHT - 1));
+
+    swapDirection = null;
+}
+
+function onTouchMove(ev) {
+    ev.preventDefault();
+    if (ev.touches.length === 0 || touchStartX === null) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const touch = ev.touches[0];
+
+    const currentX = (touch.clientX - rect.left) / currentScale;
+    const currentY = (touch.clientY - rect.top) / currentScale;
+
+    const deltaX = currentX - touchStartX;
+    const deltaY = currentY - touchStartY;
+
+    // スワイプの閾値（1/3ブロック分）
+    const threshold = BLOCK_SIZE / 3;
+
+    // 横スワイプでブロック入れ替え（一度だけ実行）
+    if (swapDirection === null && Math.abs(deltaX) > threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX > 0) {
+            // 右スワイプ: タッチしたブロックを右に移動
+            if (x < WIDTH - 1) {
+                // 右端でない場合のみ実行
+                swapDirection = 'right';
+                swapKey = true;
+            }
+        } else {
+            // 左スワイプ: タッチしたブロックを左に移動
+            if (x > 0) {
+                // 左端でない場合
+                x--; // カーソルを左に移動
+                swapDirection = 'left';
+                swapKey = true;
+            } else if (x == WIDTH - 1) {
+                // 右端をタッチした場合、左のブロックと入れ替え
+                x = WIDTH - 2; // カーソルを左側のペアに設定
+                swapDirection = 'left';
+                swapKey = true;
+            }
+        }
+    }
+}
+
+function onTouchEnd(ev) {
+    ev.preventDefault();
+
+    touchStartX = null;
+    touchStartY = null;
+    swapDirection = null;
 }
 
 // ゲーム初期化
@@ -504,21 +585,23 @@ const updateFunc = () => {
         g.fillStyle = DARK_COLORS[next[x]];
         g.fillRect(x * BLOCK_SIZE, HEIGHT * BLOCK_SIZE - raiseY, BLOCK_SIZE, BLOCK_SIZE);
     }
-    // カーソル
-    g.translate((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE - raiseY);
-    g.fillStyle = 'white';
-    g.beginPath();
-    const offset = -((Math.floor(counter / 30) & 1) + BLOCK_SIZE * 0.5);
-    for (let i = 0; i < 2; ++i) {
-        for (let j = 0; j < 4; ++j) {
-            g.rotate(0.5 * Math.PI);
-            g.rect(offset, offset, BLOCK_SIZE / 3, BLOCK_SIZE / 8);
-            g.rect(offset, offset, BLOCK_SIZE / 8, BLOCK_SIZE / 3);
+    // カーソル（モバイルでは非表示）
+    if (!isMobile) {
+        g.translate((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE - raiseY);
+        g.fillStyle = 'white';
+        g.beginPath();
+        const offset = -((Math.floor(counter / 30) & 1) + BLOCK_SIZE * 0.5);
+        for (let i = 0; i < 2; ++i) {
+            for (let j = 0; j < 4; ++j) {
+                g.rotate(0.5 * Math.PI);
+                g.rect(offset, offset, BLOCK_SIZE / 3, BLOCK_SIZE / 8);
+                g.rect(offset, offset, BLOCK_SIZE / 8, BLOCK_SIZE / 3);
+            }
+            g.translate(BLOCK_SIZE, 0);
         }
-        g.translate(BLOCK_SIZE, 0);
+        g.fill();
+        g.setTransform(1, 0, 0, 1, 0, 0);
     }
-    g.fill();
-    g.setTransform(1, 0, 0, 1, 0, 0);
 };
 
 resetGame();
