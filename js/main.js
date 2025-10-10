@@ -250,7 +250,7 @@ function onMouseDown(ev) {
     const mouseX = (clientX - rect.left) / currentScale;
     const mouseY = (clientY - rect.top) / currentScale;
 
-    x = Math.floor(mouseX / BLOCK_SIZE);
+    x = Math.floor((mouseX - BLOCK_SIZE / 2) / BLOCK_SIZE);
     const currentRaiseY = Math.floor(BLOCK_SIZE * raiseCount / raiseTime);
     y = Math.floor((mouseY - BLOCK_SIZE / 2 + currentRaiseY) / BLOCK_SIZE);
     // カーソル位置を有効範囲内に制限
