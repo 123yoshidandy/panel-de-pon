@@ -2,20 +2,22 @@ import {
     WIDTH, HEIGHT, NUM, BLOCK_SIZE, EMPTY, GARBAGE, COLOR_COUNT,
     NEUTRAL, EXTINCT, VANISH, FALLING, MOVEDOWN,
     SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR, HANG,
-    FALL_FRAME, INITIAL_RAISE_TIME, MIN_RAISE_TIME, RAISE_BOOST,
+    FALL_FRAME, MIN_RAISE_TIME, RAISE_BOOST,
     GARBAGE_GAUGE_MAX, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME,
     GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, POPUP_FRAME, MIN_COMBO
 } from './constants.js';
 import { Block } from './Block.js';
+import { DEFAULT_SETTINGS, getChoice, isGarbageEnabled } from './settings.js';
 
 // ゲーム状態
 export const gameState = {
+    settings: DEFAULT_SETTINGS, // 難易度設定（settings.js）
     x: 0, // カーソル位置（入れ替えるペアの左側）
     y: 0,
     touched: null, // タッチ中のマス { x, y }
     counter: 0,
     raiseCount: 0,
-    raiseTime: INITIAL_RAISE_TIME,
+    raiseTime: getChoice(DEFAULT_SETTINGS, 'raiseSpeed').raiseTime,
     blocks: [],
     next: [],
     garbages: [], // お邪魔ブロック { x, y, width, falling, clearing, count }
@@ -51,7 +53,8 @@ function genNext() {
 }
 
 // ゲーム初期化
-export function resetGame() {
+export function resetGame(settings = gameState.settings) {
+    gameState.settings = settings;
     gameState.blocks = Array.from({ length: NUM }, () => new Block());
     gameState.next = Array(WIDTH);
 
@@ -78,7 +81,7 @@ export function resetGame() {
     gameState.popups = [];
     gameState.counter = 0;
     gameState.raiseCount = 0;
-    gameState.raiseTime = INITIAL_RAISE_TIME;
+    gameState.raiseTime = getChoice(settings, 'raiseSpeed').raiseTime;
 }
 
 // (x, y) から右と下に3つ以上つながっていれば発火させ、発火させた数を返す
@@ -333,7 +336,9 @@ function updateGarbages() {
     }
 
     // ゲージが満タンになったら降らせる（置けなければ満タンのまま待つ）
-    gameState.garbageGauge = Math.min(gameState.garbageGauge + 1, GARBAGE_GAUGE_MAX);
+    if (!isGarbageEnabled(gameState.settings)) return;
+    const rate = getChoice(gameState.settings, 'gaugeSpeed').gaugeRate;
+    gameState.garbageGauge = Math.min(gameState.garbageGauge + rate, GARBAGE_GAUGE_MAX);
     if (gameState.garbageGauge >= GARBAGE_GAUGE_MAX && spawnGarbage()) {
         gameState.garbageGauge = 0;
     }

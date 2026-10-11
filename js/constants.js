@@ -33,7 +33,6 @@ export const VANISH_FRAME = 20;
 export const LEVITATE_FRAME = 8;
 
 // せり上がり
-export const INITIAL_RAISE_TIME = 600; // 1段せり上がるまでのフレーム数（初期値）
 export const MIN_RAISE_TIME = 40; // 1段せり上がるまでのフレーム数（下限）
 export const RAISE_BOOST = 20; // 加速中に1フレームで進むせり上がり量
 

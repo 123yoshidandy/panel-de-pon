@@ -5,6 +5,7 @@ import {
     GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING
 } from './constants.js';
 import { getRaiseOffset } from './game.js';
+import { isGarbageEnabled } from './settings.js';
 
 // キャンバスとコンテキスト
 export let canvas;
@@ -19,8 +20,8 @@ const showCursor = !(('ontouchstart' in window) || navigator.maxTouchPoints > 0)
 let scoreElement;
 let maxChainElement;
 
-// 描画の初期化。onRestart はゲームオーバー画面の RESTART ボタンで呼ばれる
-export function initRenderer(onRestart) {
+// 描画の初期化。onRestart・onBackToTitle はゲームオーバー画面のボタンで呼ばれる
+export function initRenderer({ onRestart, onBackToTitle }) {
     canvas = document.createElement('canvas');
     canvas.classList.add('field');
     g = canvas.getContext('2d');
@@ -40,16 +41,21 @@ export function initRenderer(onRestart) {
         <div class="game-over-title">GAME OVER</div>
         <div class="game-over-score">TIME <span class="game-over-time"></span> s</div>
         <div class="game-over-score">MAX CHAIN <span class="game-over-chain"></span></div>
-        <button type="button" class="restart-button">RESTART</button>
-        <div class="game-over-hint">Z / X / Enter</div>
+        <div class="game-over-buttons">
+            <button type="button" class="game-over-button" data-action="restart">RESTART</button>
+            <button type="button" class="game-over-button" data-action="title">タイトルへ</button>
+        </div>
+        <div class="game-over-hint">Z / X / Enter : RESTART</div>
     `;
     scoreElement = gameOverElement.querySelector('.game-over-time');
     maxChainElement = gameOverElement.querySelector('.game-over-chain');
-    const restartButton = gameOverElement.querySelector('.restart-button');
-    restartButton.addEventListener('click', () => {
-        restartButton.blur(); // フォーカスが残ってキー入力を奪わないように
-        onRestart();
-    });
+    const actions = { restart: onRestart, title: onBackToTitle };
+    for (const button of gameOverElement.querySelectorAll('.game-over-button')) {
+        button.addEventListener('click', () => {
+            button.blur(); // フォーカスが残ってキー入力を奪わないように
+            actions[button.dataset.action]();
+        });
+    }
     document.body.append(gameOverElement);
 
     return canvas;
@@ -163,6 +169,7 @@ export function render(state) {
         drawPopup(popup, raiseY);
     }
 
+    gaugeElement.style.visibility = isGarbageEnabled(state.settings) ? 'visible' : 'hidden';
     renderGauge(state.garbageGauge / GARBAGE_GAUGE_MAX);
 }
 

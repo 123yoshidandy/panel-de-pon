@@ -63,11 +63,17 @@ body {
     font-size: 0.8em;
 }
 
-.restart-button {
+.game-over-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
     margin-top: 0.4em;
+}
+
+.game-over-button {
     padding: 0.2em 1em;
-    font-family: inherit;
-    font-size: 0.8em;
+    font-family: 'Anton', 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif;
+    font-size: 0.7em;
     color: white;
     background: rgba(0, 0, 0, 0.6);
     border: 2px solid white;
@@ -75,7 +81,7 @@ body {
     cursor: pointer;
 }
 
-.restart-button:hover {
+.game-over-button:hover {
     background: rgba(255, 255, 255, 0.2);
 }
 
@@ -91,6 +97,8 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
+    padding: 16px;
+    box-sizing: border-box;
     background: inherit;
     display: flex;
     align-items: center;
@@ -98,20 +106,25 @@ body {
     z-index: 1000;
     opacity: 1;
     transition: opacity 0.5s;
+    overflow-y: auto;
+    touch-action: pan-y; /* 画面が小さいときは縦スクロールできるように */
 }
 
 .title-content {
     text-align: center;
     padding: 20px;
+    margin: auto;
     background: rgba(0, 0, 0, 0.8);
     border-radius: 20px;
     box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+    font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif;
 }
 
 .title-text {
+    font-family: 'Anton', sans-serif;
     font-size: 48px;
     color: white;
-    margin: 20px 0;
+    margin: 10px 0;
     letter-spacing: 4px;
     text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
     animation: pulse 2s infinite;
@@ -124,7 +137,7 @@ body {
 
 .title-blocks {
     font-size: 48px;
-    margin: 30px 0;
+    margin: 20px 0;
     display: flex;
     justify-content: center;
     gap: 15px;
@@ -142,11 +155,79 @@ body {
     50% { transform: translateY(-20px); }
 }
 
+/* 難易度設定（ラジオボタンをセグメント型のボタンとして表示） */
+.settings {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 10px 0 20px;
+}
+
+.setting {
+    border: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap; /* 選択肢は1行に並べる */
+    gap: 6px;
+}
+
+.setting legend {
+    width: 100%;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.setting input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.setting label span {
+    display: inline-block;
+    min-width: 56px;
+    padding: 6px 8px;
+    white-space: nowrap;
+    font-size: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.setting input:checked + span {
+    border-color: white;
+    background: rgba(255, 255, 255, 0.25);
+    font-weight: bold;
+}
+
+.setting input:focus-visible + span {
+    outline: 2px solid rgb(0, 192, 192);
+}
+
 .start-button {
+    font-family: inherit;
     font-size: 24px;
+    font-weight: bold;
     color: white;
-    margin: 40px 0 30px 0;
+    padding: 8px 48px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid white;
+    border-radius: 8px;
+    cursor: pointer;
     animation: blink 1s infinite;
+}
+
+.start-button:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.start-hint {
+    margin: 6px 0 20px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 @keyframes blink {
@@ -162,15 +243,14 @@ body {
 }
 
 .control-section h3 {
-    font-size: 18px;
-    margin-bottom: 10px;
+    font-size: 16px;
+    margin: 0 0 8px;
     color: white;
 }
 
 .control-section p {
-    font-size: 14px;
-    margin: 5px 0;
-    font-family: monospace;
+    font-size: 13px;
+    margin: 4px 0;
 }
 
 @media (max-width: 600px) {
@@ -183,11 +263,21 @@ body {
     }
 
     .start-button {
-        font-size: 18px;
+        font-size: 20px;
+    }
+
+    .setting {
+        gap: 4px;
+    }
+
+    .setting label span {
+        min-width: 48px;
+        padding: 6px 4px;
+        font-size: 13px;
     }
 
     .controls {
         flex-direction: column;
-        gap: 20px;
+        gap: 16px;
     }
 }

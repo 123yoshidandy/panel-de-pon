@@ -47,6 +47,8 @@ export function initInput(targetCanvas, onConfirmCallback) {
 }
 
 function onKeyDown(ev) {
+    // タイトル画面の設定などフォーム部品の操作中はゲームの入力として扱わない
+    if (ev.target.closest?.('input, button')) return;
     const direction = DIRECTION_KEYS[ev.code];
     if (direction) {
         keys[direction] = true;
