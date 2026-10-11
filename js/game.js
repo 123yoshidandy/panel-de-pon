@@ -460,50 +460,57 @@ function isSettled() {
     return gameState.garbages.every(garbage => !garbage.falling && !garbage.clearing);
 }
 
-// 台を揺らしたように、隣の列より高い列の上の部分を隣の列へずらして落とす。
-// ずれるのは高さの差の半分（切り上げ）で、かたまりのまま順番を保って移る。
-// 左右とも低ければ低いほうへ、同じならランダムにずれる。受け取った列は渡さず、渡した列は受け取らない。
+// 台を揺らしたように、各列の上から最初に現れる通常ブロックのかたまりを隣の列へずらして落とす。
+// 一番上がお邪魔ブロックの列でも、その下の通常ブロックが横へ抜け出してずれる。
+// ずれる先は隣の列の同じ高さの空きマスで、お邪魔ブロックなどには重ならない。
+// ずれるのは、ずれる先から下に続く空きマス数の半分（切り上げ）で、かたまりのまま順番を保って移る。
+// 左右とも空いていれば空きの多いほうへ、同じならランダムにずれる。受け取った列は渡さず、渡した列は受け取らない。
 // 盤面はすぐに移動後の状態にし、移動の様子（横移動→落下）を表す一覧を返す
 function flatten() {
     // 動いている空きマスが、移したブロックの上に落ちてきて上書きしないように止める
     for (const b of gameState.blocks) {
         if (b.isEmpty()) b.setState(NEUTRAL);
     }
-    const heights = Array.from({ length: WIDTH }, (_, x) => {
-        let y = 0;
-        while (y < HEIGHT && blockAt(x, y).isEmpty()) y++;
-        return HEIGHT - y;
-    });
-    // 一番上から続く通常ブロックの数（お邪魔ブロックより下は動かさない）
-    const movable = x => {
+    // 列 x の上から最初に現れる通常ブロックのかたまり（top 段目から length 個）
+    const colorRun = x => {
+        let top = 0;
+        while (top < HEIGHT && !blockAt(x, top).isColor()) top++;
+        let length = 0;
+        while (top + length < HEIGHT && blockAt(x, top + length).isColor()) length++;
+        return { top, length };
+    };
+    // 列 x の y 段目から下に続く空きマスの数
+    const freeBelow = (x, y) => {
         let n = 0;
-        while (n < heights[x] && blockAt(x, HEIGHT - heights[x] + n).isColor()) n++;
+        while (y + n < HEIGHT && blockAt(x, y + n).isEmpty()) n++;
         return n;
     };
 
-    // 高い列から順に、ずれる先と個数を決めて盤面に反映する
+    // かたまりが高い位置にある列から順に、ずれる先と個数を決めて盤面に反映する
     const gave = Array(WIDTH).fill(false);
     const received = Array(WIDTH).fill(false);
     const moves = [];
-    const order = [...Array(WIDTH).keys()].sort((a, b) => heights[b] - heights[a]);
+    const order = [...Array(WIDTH).keys()].sort((a, b) => colorRun(a).top - colorRun(b).top);
     for (const from of order) {
-        if (received[from] || movable(from) === 0) continue;
-        const candidates = [from - 1, from + 1].filter(to =>
-            inField(to, 0) && !gave[to] && !received[to] && heights[to] < heights[from]);
+        const run = colorRun(from);
+        if (received[from] || run.length === 0) continue;
+        const candidates = [from - 1, from + 1]
+            .filter(to => inField(to, 0) && !gave[to] && !received[to])
+            .map(to => ({ to, free: freeBelow(to, run.top) }))
+            .filter(c => c.free > 0);
         if (candidates.length === 0) continue;
-        let to = candidates[0];
+        let { to, free } = candidates[0];
         if (candidates.length === 2) {
             const [l, r] = candidates;
-            to = heights[l] !== heights[r] ? (heights[l] < heights[r] ? l : r) : candidates[Math.floor(Math.random() * 2)];
+            ({ to, free } = l.free !== r.free ? (l.free > r.free ? l : r) : candidates[Math.floor(Math.random() * 2)]);
         }
-        const count = Math.min(Math.ceil((heights[from] - heights[to]) / 2), movable(from));
+        const count = Math.min(Math.ceil(free / 2), run.length);
         gave[from] = received[to] = true;
 
         // 上の count 個を、順番を保ったまま隣の列に積む（一番下のブロックが一番下に着く）
-        const fromTop = HEIGHT - heights[from];
-        const fall = heights[from] - count - heights[to];
+        const fall = free - count;
         for (let i = count - 1; i >= 0; --i) {
-            const fromY = fromTop + i;
+            const fromY = run.top + i;
             const toY = fromY + fall;
             const src = blockAt(from, fromY);
             const dst = blockAt(to, toY);
@@ -514,8 +521,6 @@ function flatten() {
             const duration = FLATTEN_HORIZONTAL_FRAME + fall * FLATTEN_VERTICAL_FRAME;
             moves.push({ type: dst.type, fromX: from, fromY, toX: to, toY, duration });
         }
-        heights[from] -= count;
-        heights[to] += count;
     }
     return moves;
 }
