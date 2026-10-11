@@ -1,21 +1,25 @@
 // キー状態（raise 以外は1フレームごとにリセット）
-const keys = { up: false, down: false, left: false, right: false, swap: false, raise: false };
+const keys = { up: false, down: false, left: false, right: false, swap: false, raise: false, flatten: false };
 
 // マウス・タッチ操作（座標はキャンバスの描画領域基準のピクセル）
 let pointerActions = [];
 
 const DIRECTION_KEYS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+const RAISE_HOLD_MS = 150; // フィールド外をこの時間押し続けたら加速（タップでせり上がらないように）
+const DOUBLE_TAP_MS = 300; // フィールド外のタップからこの時間内に再びタッチしたら平滑化
 
 let canvas;
 let onConfirm;
 let dragTouchId = null; // ブロックをつかんでいるタッチのID
 let raiseTouchId = null; // 加速用タッチのID
+let raiseTimer = null;
+let lastTapTime = -Infinity; // フィールド外を最後にタップした時刻
 
 // 1フレーム分の入力を取り出す
 export function pollInput() {
     const input = { ...keys, actions: pointerActions };
     pointerActions = [];
-    keys.up = keys.down = keys.left = keys.right = keys.swap = false;
+    keys.up = keys.down = keys.left = keys.right = keys.swap = keys.flatten = false;
     return input;
 }
 
@@ -57,6 +61,9 @@ function onKeyDown(ev) {
         keys.swap = true;
     } else if (ev.code === 'KeyX') {
         keys.raise = true;
+    } else if (ev.code === 'KeyC') {
+        keys.flatten = true;
+        return;
     } else if (ev.code !== 'Enter' && ev.code !== 'Space') {
         return;
     }
@@ -112,22 +119,29 @@ function onTouchEnd(ev) {
     }
 }
 
-// キャンバスの外側をタッチしている間は加速
+// キャンバスの外側を長押ししている間は加速、ダブルタップで平滑化
 function onDocumentTouchStart(ev) {
     if (raiseTouchId !== null) return;
     const rect = canvas.getBoundingClientRect();
     for (const touch of ev.changedTouches) {
         const { clientX: x, clientY: y } = touch;
-        if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-            raiseTouchId = touch.identifier;
-            keys.raise = true;
-            break;
+        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) continue;
+        if (performance.now() - lastTapTime < DOUBLE_TAP_MS) {
+            lastTapTime = -Infinity;
+            keys.flatten = true;
+            return;
         }
+        raiseTouchId = touch.identifier;
+        raiseTimer = setTimeout(() => { keys.raise = true; }, RAISE_HOLD_MS);
+        break;
     }
 }
 
 function onDocumentTouchEnd(ev) {
     if (raiseTouchId !== null && findTouch(ev.changedTouches, raiseTouchId)) {
+        clearTimeout(raiseTimer);
+        // 加速が始まる前に離したらタップ
+        lastTapTime = keys.raise ? -Infinity : performance.now();
         raiseTouchId = null;
         keys.raise = false;
     }

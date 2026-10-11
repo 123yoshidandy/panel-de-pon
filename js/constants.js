@@ -50,6 +50,9 @@ export const GARBAGE_HANG_FRAME = 45; // ブロックに変わってから落下
 export const POPUP_FRAME = 60; // 連鎖数・同時消し数を表示するフレーム数
 export const MIN_COMBO = 4; // 同時消しとして扱う最小の個数
 
+// 平滑化
+export const FLATTEN_WAIT_FRAME = 60; // 盤面が動いている間に要求されたとき、静止するまで待つ最大フレーム数
+
 // ゲームループ
 export const FRAME_MS = 16; // 1フレームの長さ（ミリ秒）
 

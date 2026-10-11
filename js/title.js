@@ -44,11 +44,13 @@ export function showTitle(onStart) {
                     <p>↑↓←→ : カーソル移動</p>
                     <p>Z : 入れ替え</p>
                     <p>X : せり上げ（押している間）</p>
+                    <p>C : 平滑化</p>
                 </div>
                 <div class="control-section">
                     <h3>スマートフォン</h3>
                     <p>ブロックを左右にドラッグ : 移動</p>
                     <p>フィールドの外を長押し : せり上げ</p>
+                    <p>フィールドの外をダブルタップ : 平滑化</p>
                 </div>
             </div>
         </div>

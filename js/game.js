@@ -4,7 +4,7 @@ import {
     SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR, HANG,
     FALL_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, MIN_RAISE_TIME, RAISE_BOOST,
     GARBAGE_GAUGE_MAX, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME,
-    GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, POPUP_FRAME, MIN_COMBO
+    GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, POPUP_FRAME, MIN_COMBO, FLATTEN_WAIT_FRAME
 } from './constants.js';
 import { Block } from './Block.js';
 import { DEFAULT_SETTINGS, getChoice, isGarbageEnabled } from './settings.js';
@@ -25,7 +25,8 @@ export const gameState = {
     chain: 1, // 現在の連鎖数
     maxChain: 1,
     popups: [], // 連鎖数・同時消し数の表示 { x, y, kind: 'chain' | 'combo', value, count }
-    events: [] // このフレームで起きた出来事（効果音用）{ type, ... }
+    events: [], // このフレームで起きた出来事（効果音用）{ type, ... }
+    flattenRequest: 0 // 平滑化を待っている残りフレーム数（0 なら要求なし）
 };
 
 const emit = (type, props = {}) => gameState.events.push({ type, ...props });
@@ -83,6 +84,7 @@ export function resetGame(settings = gameState.settings) {
     gameState.maxChain = 1;
     gameState.popups = [];
     gameState.events = [];
+    gameState.flattenRequest = 0;
     gameState.counter = 0;
     gameState.raiseCount = 0;
     gameState.raiseTime = getChoice(settings, 'raiseSpeed').raiseTime;
@@ -436,6 +438,67 @@ function trySwap(x, y) {
     emit('swap');
 }
 
+// 盤面が静止しているか（消去・落下・入れ替えなどの途中でない）
+// 空きマス同士を入れ替えたときなどは空きマスだけが動いているので、空きマスは見ない
+function isSettled() {
+    return gameState.blocks.every(b => b.isEmpty() || b.state === NEUTRAL)
+        && gameState.garbages.every(garbage => !garbage.falling && !garbage.clearing);
+}
+
+// 高い列の一番上のブロックを低い列へ移し、列の高さの差を1以下にする
+function flatten() {
+    // 動いている空きマスが、移したブロックの上に落ちてきて上書きしないように止める
+    for (const b of gameState.blocks) {
+        if (b.isEmpty()) b.setState(NEUTRAL);
+    }
+    const heights = Array.from({ length: WIDTH }, (_, x) => {
+        let y = 0;
+        while (y < HEIGHT && blockAt(x, y).isEmpty()) y++;
+        return HEIGHT - y;
+    });
+    const topOf = x => blockAt(x, HEIGHT - heights[x]);
+    let moved = false;
+    for (;;) {
+        // 移動元: 一番上が通常ブロックの列のうち最も高い列（お邪魔ブロックは動かさない）
+        let from = -1;
+        for (let x = 0; x < WIDTH; ++x) {
+            if (heights[x] > 0 && topOf(x).isColor() && (from < 0 || heights[x] > heights[from])) from = x;
+        }
+        if (from < 0) break;
+        // 移動先: 最も低い列（同じ高さなら移動元に近い列）
+        let to = -1;
+        for (let x = 0; x < WIDTH; ++x) {
+            if (x === from) continue;
+            if (to < 0 || heights[x] < heights[to]
+                || (heights[x] === heights[to] && Math.abs(x - from) < Math.abs(to - from))) to = x;
+        }
+        if (heights[from] - heights[to] <= 1) break;
+
+        const src = topOf(from);
+        heights[to]++;
+        const dst = topOf(to);
+        dst.type = src.type;
+        dst.chain = false;
+        src.type = EMPTY;
+        src.chain = false;
+        heights[from]--;
+        moved = true;
+    }
+    if (moved) emit('land');
+}
+
+// 平滑化の要求を処理する。盤面が動いている間は静止するまで待つ
+function updateFlatten(requested) {
+    if (requested) gameState.flattenRequest = FLATTEN_WAIT_FRAME;
+    if (gameState.flattenRequest === 0) return;
+    if (isSettled()) {
+        flatten();
+        gameState.flattenRequest = 0;
+    } else {
+        gameState.flattenRequest--;
+    }
+}
+
 // 全体を1段せり上げる。最上段まで埋まっていたら true を返す
 function raiseRow() {
     let gameOver = false;
@@ -482,6 +545,7 @@ export function updateGame(input) {
     // お邪魔ブロックの落下中・消去中はせり上げない
     stopRaise ||= gameState.garbages.some(garbage => garbage.falling || garbage.clearing);
 
+    updateFlatten(input.flatten);
     applyPointerActions(input.actions);
     updateDrag();
     moveCursor(input);
