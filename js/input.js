@@ -41,6 +41,9 @@ export function initInput(targetCanvas, onConfirmCallback) {
     document.addEventListener('touchstart', onDocumentTouchStart);
     document.addEventListener('touchend', onDocumentTouchEnd);
     document.addEventListener('touchcancel', onDocumentTouchEnd);
+
+    // 長押し（加速）や右クリックでメニューを出さない
+    document.addEventListener('contextmenu', ev => ev.preventDefault());
 }
 
 function onKeyDown(ev) {
@@ -76,11 +79,14 @@ function toCanvasPoint(clientX, clientY) {
 
 const findTouch = (touches, id) => Array.from(touches).find(t => t.identifier === id);
 
+// マウスは左ボタンのみ受け付ける
 function onMouseDown(ev) {
+    if (ev.button !== 0) return;
     pointerActions.push({ type: 'select', ...toCanvasPoint(ev.clientX, ev.clientY) });
 }
 
-function onMouseUp() {
+function onMouseUp(ev) {
+    if (ev.button !== 0) return;
     keys.swap = true;
 }
 
