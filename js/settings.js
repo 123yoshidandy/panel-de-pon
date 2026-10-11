@@ -1,22 +1,14 @@
 // 設定（難易度・効果音）
 export const SETTING_OPTIONS = [
     {
-        key: 'raiseSpeed',
-        label: 'せり上がり速度',
+        key: 'difficulty',
+        label: '難易度',
+        // raiseTime: せり上がりの速さ（1段にかかるフレーム数）、gaugeRate: お邪魔ゲージの溜まる速さ
         choices: [
-            { value: 'slow', label: 'おそい', raiseTime: 900 },
-            { value: 'normal', label: 'ふつう', raiseTime: 600 },
-            { value: 'fast', label: 'はやい', raiseTime: 360 }
-        ]
-    },
-    {
-        key: 'gaugeSpeed',
-        label: 'お邪魔ゲージの溜まる速さ',
-        choices: [
-            { value: 'off', label: 'なし', gaugeRate: 0 }, // お邪魔ブロックが降らない
-            { value: 'slow', label: 'おそい', gaugeRate: 2 / 3 },
-            { value: 'normal', label: 'ふつう', gaugeRate: 1 },
-            { value: 'fast', label: 'はやい', gaugeRate: 1.5 }
+            { value: 'practice', label: 'れんしゅう', raiseTime: 900, gaugeRate: 0 }, // お邪魔ブロックが降らない
+            { value: 'easy', label: 'やさしい', raiseTime: 900, gaugeRate: 2 / 3 },
+            { value: 'normal', label: 'ふつう', raiseTime: 600, gaugeRate: 1 },
+            { value: 'hard', label: 'むずかしい', raiseTime: 360, gaugeRate: 1.5 }
         ]
     },
     {
@@ -37,7 +29,7 @@ export const SETTING_OPTIONS = [
     }
 ];
 
-export const DEFAULT_SETTINGS = { raiseSpeed: 'normal', gaugeSpeed: 'normal', sound: 'on', bgm: 'on' };
+export const DEFAULT_SETTINGS = { difficulty: 'normal', sound: 'on', bgm: 'on' };
 
 const STORAGE_KEY = 'panel-de-pon-settings';
 
@@ -49,7 +41,7 @@ export function getChoice(settings, key) {
 
 // お邪魔ブロックが降る設定か
 export function isGarbageEnabled(settings) {
-    return getChoice(settings, 'gaugeSpeed').gaugeRate > 0;
+    return getChoice(settings, 'difficulty').gaugeRate > 0;
 }
 
 // 保存された設定を読み込む（不正な値は既定値にする）
@@ -60,8 +52,13 @@ export function loadSettings() {
     } catch {
         // 読めなければ既定値を使う
     }
-    // 旧設定（お邪魔ブロックの有無）からの移行
-    if (saved.garbage === 'off') saved.gaugeSpeed = 'off';
+    // 旧設定（せり上がり速度・お邪魔ゲージの速さ・お邪魔ブロックの有無）からの移行
+    if (!saved.difficulty && (saved.raiseSpeed || saved.gaugeSpeed || saved.garbage)) {
+        const byRaiseSpeed = { slow: 'easy', normal: 'normal', fast: 'hard' };
+        saved.difficulty = saved.gaugeSpeed === 'off' || saved.garbage === 'off'
+            ? 'practice'
+            : byRaiseSpeed[saved.raiseSpeed] ?? 'normal';
+    }
 
     const settings = { ...DEFAULT_SETTINGS };
     for (const option of SETTING_OPTIONS) {

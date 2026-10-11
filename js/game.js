@@ -18,7 +18,7 @@ export const gameState = {
     touched: null, // タッチでつかんでいるブロック { x, y, block, targetX }（targetX は指のある列）
     counter: 0,
     raiseCount: 0,
-    raiseTime: getChoice(DEFAULT_SETTINGS, 'raiseSpeed').raiseTime,
+    raiseTime: getChoice(DEFAULT_SETTINGS, 'difficulty').raiseTime,
     blocks: [],
     next: [],
     garbages: [], // お邪魔ブロック { x, y, width, falling, clearing, count }
@@ -94,7 +94,7 @@ export function resetGame(settings = gameState.settings) {
     gameState.shakeFrame = 0;
     gameState.counter = 0;
     gameState.raiseCount = 0;
-    gameState.raiseTime = getChoice(settings, 'raiseSpeed').raiseTime;
+    gameState.raiseTime = getChoice(settings, 'difficulty').raiseTime;
 }
 
 // (x, y) から右と下に3つ以上つながっていれば発火させ、発火させた数を返す
@@ -356,7 +356,7 @@ function updateGarbages() {
 
     // ゲージが満タンになったら降らせる（置けなければ満タンのまま待つ）
     if (!isGarbageEnabled(gameState.settings)) return;
-    const rate = getChoice(gameState.settings, 'gaugeSpeed').gaugeRate;
+    const rate = getChoice(gameState.settings, 'difficulty').gaugeRate;
     gameState.garbageGauge = Math.min(gameState.garbageGauge + rate, GARBAGE_GAUGE_MAX);
     if (gameState.garbageGauge >= GARBAGE_GAUGE_MAX && spawnGarbage()) {
         gameState.garbageGauge = 0;
