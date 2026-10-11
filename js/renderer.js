@@ -2,7 +2,7 @@ import {
     WIDTH, HEIGHT, BLOCK_SIZE, GARBAGE, FALL_FRAME,
     COLORS, LIGHT_COLORS, DARK_COLORS, RELIEF,
     GARBAGE_COLOR, GARBAGE_LIGHT_COLOR, GARBAGE_DARK_COLOR, CHAIN_COLOR, COMBO_COLOR,
-    GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING
+    GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING, SHAKE_FRAME
 } from './constants.js';
 import { getRaiseOffset, flattenMovePosition } from './game.js';
 import { isGarbageEnabled } from './settings.js';
@@ -174,6 +174,12 @@ export function render(state) {
     for (const f of flying) {
         drawBlock(f.type, f.x * BLOCK_SIZE, f.y * BLOCK_SIZE - raiseY);
     }
+
+    // 平滑化でフィールドを左右に揺らす（だんだん小さくなる）
+    const shake = state.shakeFrame > 0
+        ? Math.sin(state.shakeFrame * Math.PI / 2) * BLOCK_SIZE / 8 * state.shakeFrame / SHAKE_FRAME
+        : 0;
+    canvas.style.transform = shake ? `translateX(${shake}px)` : '';
 
     if (showCursor) {
         drawCursor(state.x, state.y, raiseY, state.counter);

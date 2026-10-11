@@ -5,7 +5,7 @@ import {
     FALL_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, MIN_RAISE_TIME, RAISE_BOOST,
     GARBAGE_GAUGE_MAX, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME,
     GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, POPUP_FRAME, MIN_COMBO,
-    FLATTEN_WAIT_FRAME, FLATTEN_HORIZONTAL_FRAME, FLATTEN_VERTICAL_FRAME
+    FLATTEN_WAIT_FRAME, FLATTEN_HORIZONTAL_FRAME, FLATTEN_VERTICAL_FRAME, SHAKE_FRAME
 } from './constants.js';
 import { Block } from './Block.js';
 import { DEFAULT_SETTINGS, getChoice, isGarbageEnabled } from './settings.js';
@@ -28,8 +28,9 @@ export const gameState = {
     popups: [], // 連鎖数・同時消し数の表示 { x, y, kind: 'chain' | 'combo', value, count }
     events: [], // このフレームで起きた出来事（効果音用）{ type, ... }
     flattenRequest: 0, // 平滑化を待っている残りフレーム数（0 なら要求なし）
-    flattenMoves: [], // 平滑化で移動中のブロック { type, fromX, fromY, liftY, toX, toY, duration }
-    flattenFrame: 0 // 平滑化の移動が始まってからのフレーム数
+    flattenMoves: [], // 平滑化で移動中のブロック { type, fromX, fromY, toX, toY, duration }
+    flattenFrame: 0, // 平滑化の移動が始まってからのフレーム数
+    shakeFrame: 0 // 平滑化でフィールドが揺れる残りフレーム数
 };
 
 const emit = (type, props = {}) => gameState.events.push({ type, ...props });
@@ -90,6 +91,7 @@ export function resetGame(settings = gameState.settings) {
     gameState.flattenRequest = 0;
     gameState.flattenMoves = [];
     gameState.flattenFrame = 0;
+    gameState.shakeFrame = 0;
     gameState.counter = 0;
     gameState.raiseCount = 0;
     gameState.raiseTime = getChoice(settings, 'raiseSpeed').raiseTime;
@@ -458,8 +460,9 @@ function isSettled() {
     return gameState.garbages.every(garbage => !garbage.falling && !garbage.clearing);
 }
 
-// 高い列の一番上のブロックを低い列へ移し、列の高さの差を1以下にする。
-// 盤面はすぐに移動後の状態にし、移動の様子（持ち上げ→横移動→落下）を表す一覧を返す
+// 台を揺らしたように、隣の列より2段以上高い列の一番上のブロックを隣の列へずらして落とす。
+// 1回で動くのは各列1個まで（受け取るのも1個まで）。左右とも低ければ低いほうへ、同じならランダムにずれる。
+// 盤面はすぐに移動後の状態にし、移動の様子（横移動→落下）を表す一覧を返す
 function flatten() {
     // 動いている空きマスが、移したブロックの上に落ちてきて上書きしないように止める
     for (const b of gameState.blocks) {
@@ -471,61 +474,53 @@ function flatten() {
         return HEIGHT - y;
     });
     const topOf = x => blockAt(x, HEIGHT - heights[x]);
-    const moves = [];
-    for (;;) {
-        // 移動元: 一番上が通常ブロックの列のうち最も高い列（お邪魔ブロックは動かさない）
-        let from = -1;
-        for (let x = 0; x < WIDTH; ++x) {
-            if (heights[x] > 0 && topOf(x).isColor() && (from < 0 || heights[x] > heights[from])) from = x;
-        }
-        if (from < 0) break;
-        // 移動先: 最も低い列（同じ高さなら移動元に近い列）
-        let to = -1;
-        for (let x = 0; x < WIDTH; ++x) {
-            if (x === from) continue;
-            if (to < 0 || heights[x] < heights[to]
-                || (heights[x] === heights[to] && Math.abs(x - from) < Math.abs(to - from))) to = x;
-        }
-        if (heights[from] - heights[to] <= 1) break;
 
-        // 間にある列より上を通るように持ち上げる
-        const fromY = HEIGHT - heights[from];
-        let liftY = fromY;
-        for (let x = Math.min(from, to) + 1; x < Math.max(from, to); ++x) {
-            liftY = Math.min(liftY, HEIGHT - heights[x] - 1);
+    // 高い列から順に、ずれる先を決める
+    const received = Array(WIDTH).fill(false);
+    const pairs = [];
+    const order = [...Array(WIDTH).keys()].sort((a, b) => heights[b] - heights[a]);
+    for (const from of order) {
+        if (heights[from] === 0 || !topOf(from).isColor()) continue; // お邪魔ブロックは動かさない
+        const candidates = [from - 1, from + 1].filter(to =>
+            inField(to, 0) && !received[to] && heights[from] - heights[to] >= 2);
+        if (candidates.length === 0) continue;
+        let to = candidates[0];
+        if (candidates.length === 2) {
+            const [l, r] = candidates;
+            to = heights[l] !== heights[r] ? (heights[l] < heights[r] ? l : r) : candidates[Math.floor(Math.random() * 2)];
         }
-        liftY = Math.max(liftY, 0);
+        received[to] = true;
+        pairs.push({ from, to });
+    }
 
+    // 先に各列の一番上を取り除いてから、隣の列に積む
+    const lifted = pairs.map(({ from }) => {
         const src = topOf(from);
-        heights[to]++;
-        const dst = topOf(to);
-        const toY = HEIGHT - heights[to];
-        dst.type = src.type;
-        dst.chain = false;
+        const type = src.type;
+        const fromY = HEIGHT - heights[from];
         src.type = EMPTY;
         src.chain = false;
-        heights[from]--;
-
-        const duration = (fromY - liftY + toY - liftY) * FLATTEN_VERTICAL_FRAME
-            + Math.abs(to - from) * FLATTEN_HORIZONTAL_FRAME;
-        moves.push({ type: dst.type, fromX: from, fromY, liftY, toX: to, toY, duration });
-    }
-    return moves;
+        return { type, fromY };
+    });
+    for (const { from } of pairs) heights[from]--;
+    return pairs.map(({ from, to }, i) => {
+        heights[to]++;
+        const dst = topOf(to);
+        dst.type = lifted[i].type;
+        dst.chain = false;
+        const toY = HEIGHT - heights[to];
+        const duration = FLATTEN_HORIZONTAL_FRAME + (toY - lifted[i].fromY) * FLATTEN_VERTICAL_FRAME;
+        return { type: dst.type, fromX: from, fromY: lifted[i].fromY, toX: to, toY, duration };
+    });
 }
 
 // 平滑化で移動中のブロックの位置（マス単位）。到着済みなら null を返す
 export function flattenMovePosition(move, frame) {
     if (frame >= move.duration) return null;
-    let f = frame;
-    const lift = (move.fromY - move.liftY) * FLATTEN_VERTICAL_FRAME;
-    if (f < lift) return { x: move.fromX, y: move.fromY - f / FLATTEN_VERTICAL_FRAME };
-    f -= lift;
-    const slide = Math.abs(move.toX - move.fromX) * FLATTEN_HORIZONTAL_FRAME;
-    if (f < slide) {
-        return { x: move.fromX + Math.sign(move.toX - move.fromX) * f / FLATTEN_HORIZONTAL_FRAME, y: move.liftY };
+    if (frame < FLATTEN_HORIZONTAL_FRAME) {
+        return { x: move.fromX + (move.toX - move.fromX) * frame / FLATTEN_HORIZONTAL_FRAME, y: move.fromY };
     }
-    f -= slide;
-    return { x: move.toX, y: move.liftY + f / FLATTEN_VERTICAL_FRAME };
+    return { x: move.toX, y: move.fromY + (frame - FLATTEN_HORIZONTAL_FRAME) / FLATTEN_VERTICAL_FRAME };
 }
 
 // 平滑化の要求を処理する。盤面が動いている間は静止するまで待つ
@@ -536,6 +531,7 @@ function updateFlatten(requested) {
         gameState.flattenMoves = flatten();
         gameState.flattenFrame = 0;
         gameState.flattenRequest = 0;
+        gameState.shakeFrame = SHAKE_FRAME;
         if (gameState.flattenMoves.length) emit('swap');
     } else {
         gameState.flattenRequest--;
@@ -584,6 +580,7 @@ function raiseRow() {
 // ゲーム更新処理。ゲームオーバーなら true を返す
 export function updateGame(input) {
     gameState.events = [];
+    if (gameState.shakeFrame > 0) gameState.shakeFrame--;
     if (gameState.flattenMoves.length) {
         // 平滑化の移動中は、ブロック・お邪魔ブロック・せり上がりを止める
         updateFlattenMoves();
