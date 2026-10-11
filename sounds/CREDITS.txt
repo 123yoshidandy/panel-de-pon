@@ -1,0 +1,19 @@
+Sound credits (all files are CC0 / public domain)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Sound effects
+  Interface Sounds / Digital Audio by Kenney (www.kenney.nl)
+  move.m4a     <- Interface Sounds: tick_002.ogg
+  swap.m4a     <- Interface Sounds: select_001.ogg
+  pop.m4a      <- Interface Sounds: pluck_001.ogg
+  combo.m4a    <- Interface Sounds: confirmation_001.ogg
+  land.m4a     <- Interface Sounds: drop_004.ogg
+  warning.m4a  <- Interface Sounds: error_007.ogg
+  chain.m4a    <- Digital Audio: powerUp2.ogg
+  gameover.m4a <- Digital Audio: lowDown.ogg
+  (License.txt is the license file bundled with the Kenney packs)
+
+Music
+  NES Shooter Music (5 tracks, 3 jingles) by SketchyLogic
+  https://opengameart.org/content/nes-shooter-music-5-tracks-3-jingles
+  bgm.m4a      <- Mercury.wav

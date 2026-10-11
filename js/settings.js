@@ -26,10 +26,18 @@ export const SETTING_OPTIONS = [
             { value: 'on', label: 'あり' },
             { value: 'off', label: 'なし' }
         ]
+    },
+    {
+        key: 'bgm',
+        label: 'BGM',
+        choices: [
+            { value: 'on', label: 'あり' },
+            { value: 'off', label: 'なし' }
+        ]
     }
 ];
 
-export const DEFAULT_SETTINGS = { raiseSpeed: 'normal', gaugeSpeed: 'normal', sound: 'on' };
+export const DEFAULT_SETTINGS = { raiseSpeed: 'normal', gaugeSpeed: 'normal', sound: 'on', bgm: 'on' };
 
 const STORAGE_KEY = 'panel-de-pon-settings';
 
