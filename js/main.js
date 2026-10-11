@@ -52,7 +52,7 @@ function tick(now) {
     render(gameState);
 
     if (isGameOver) {
-        showGameOver(gameState.counter * FRAME_MS / 1000);
+        showGameOver(gameState.counter * FRAME_MS / 1000, gameState.maxChain);
     } else {
         requestAnimationFrame(tick);
     }

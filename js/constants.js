@@ -38,11 +38,18 @@ export const MIN_RAISE_TIME = 40; // 1段せり上がるまでのフレーム数
 export const RAISE_BOOST = 20; // 加速中に1フレームで進むせり上がり量
 
 // お邪魔ブロック
-export const GARBAGE_INTERVAL = 720; // 出現間隔（フレーム数）
+export const GARBAGE_GAUGE_MAX = 720; // ゲージが満タンになる（お邪魔ブロックが降る）までのフレーム数
+export const GARBAGE_GAUGE_WARNING = 0.75; // ゲージの警告表示を始める割合
+export const GAUGE_REDUCE_PER_COMBO = 60; // 同時消しで3個を超えた1個ごとにゲージを減らす量
+export const GAUGE_REDUCE_PER_CHAIN = 120; // n連鎖目で (n - 1) × この量だけゲージを減らす
 export const GARBAGE_MIN_WIDTH = 3;
 export const GARBAGE_MAX_WIDTH = 6;
 export const GARBAGE_CLEAR_FRAME = 60; // 消去開始からブロックに変わるまでのフレーム数
 export const GARBAGE_HANG_FRAME = 45; // ブロックに変わってから落下を始めるまでのフレーム数
+
+// 連鎖・同時消し
+export const POPUP_FRAME = 60; // 連鎖数・同時消し数を表示するフレーム数
+export const MIN_COMBO = 4; // 同時消しとして扱う最小の個数
 
 // ゲームループ
 export const FRAME_MS = 16; // 1フレームの長さ（ミリ秒）
@@ -55,6 +62,8 @@ export const DARK_COLORS = ['rgb(128,0,0)', 'rgb(0,128,0)', 'rgb(0,0,128)', 'rgb
 export const GARBAGE_COLOR = 'rgb(112,112,144)';
 export const GARBAGE_LIGHT_COLOR = 'rgb(176,176,208)';
 export const GARBAGE_DARK_COLOR = 'rgb(64,64,88)';
+export const CHAIN_COLOR = 'rgb(224,32,32)';
+export const COMBO_COLOR = 'rgb(32,96,224)';
 
 // ブロックサイズを更新する
 export function setBlockSize(size) {

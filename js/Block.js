@@ -15,6 +15,7 @@ export class Block {
         this.vanishIndex = -1;
         this.vanishNum = 0;
         this.garbage = null; // 所属するお邪魔ブロック（type が GARBAGE のとき）
+        this.chain = false; // 消去によって落下中など、消えれば連鎖になるブロックか
     }
 
     setState(st) {

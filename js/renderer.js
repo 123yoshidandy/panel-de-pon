@@ -1,19 +1,23 @@
 import {
     WIDTH, HEIGHT, BLOCK_SIZE, GARBAGE, FALL_FRAME,
     COLORS, LIGHT_COLORS, DARK_COLORS, RELIEF,
-    GARBAGE_COLOR, GARBAGE_LIGHT_COLOR, GARBAGE_DARK_COLOR
+    GARBAGE_COLOR, GARBAGE_LIGHT_COLOR, GARBAGE_DARK_COLOR, CHAIN_COLOR, COMBO_COLOR,
+    GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING
 } from './constants.js';
 import { getRaiseOffset } from './game.js';
 
 // キャンバスとコンテキスト
 export let canvas;
 export let gameOverElement;
+export let gaugeElement;
+let gaugeFillElement;
 let g;
 
 // タッチ操作の端末ではカーソルを表示しない
 const showCursor = !(('ontouchstart' in window) || navigator.maxTouchPoints > 0);
 
 let scoreElement;
+let maxChainElement;
 
 // 描画の初期化。onRestart はゲームオーバー画面の RESTART ボタンで呼ばれる
 export function initRenderer(onRestart) {
@@ -22,15 +26,25 @@ export function initRenderer(onRestart) {
     g = canvas.getContext('2d');
     document.body.append(canvas);
 
+    // お邪魔ブロックのゲージ
+    gaugeElement = document.createElement('div');
+    gaugeElement.classList.add('garbage-gauge');
+    gaugeFillElement = document.createElement('div');
+    gaugeFillElement.classList.add('garbage-gauge-fill');
+    gaugeElement.append(gaugeFillElement);
+    document.body.append(gaugeElement);
+
     gameOverElement = document.createElement('div');
     gameOverElement.classList.add('message');
     gameOverElement.innerHTML = `
         <div class="game-over-title">GAME OVER</div>
         <div class="game-over-score">TIME <span class="game-over-time"></span> s</div>
+        <div class="game-over-score">MAX CHAIN <span class="game-over-chain"></span></div>
         <button type="button" class="restart-button">RESTART</button>
         <div class="game-over-hint">Z / X / Enter</div>
     `;
     scoreElement = gameOverElement.querySelector('.game-over-time');
+    maxChainElement = gameOverElement.querySelector('.game-over-chain');
     const restartButton = gameOverElement.querySelector('.restart-button');
     restartButton.addEventListener('click', () => {
         restartButton.blur(); // フォーカスが残ってキー入力を奪わないように
@@ -85,6 +99,22 @@ function drawGarbage(garbage, raiseY) {
     g.setTransform(1, 0, 0, 1, 0, 0);
 }
 
+// 連鎖数（x2）・同時消し数（4）を描画（時間とともに少しずつ上に浮かぶ）
+function drawPopup(popup, raiseY) {
+    const rise = popup.count * BLOCK_SIZE / 60;
+    const px = popup.x * BLOCK_SIZE;
+    const py = popup.y * BLOCK_SIZE - raiseY - rise;
+    const isChain = popup.kind === 'chain';
+    g.fillStyle = isChain ? CHAIN_COLOR : COMBO_COLOR;
+    g.fillRect(px, py, BLOCK_SIZE, BLOCK_SIZE * 0.8);
+    g.strokeStyle = 'white';
+    g.lineWidth = BLOCK_SIZE / 16;
+    g.strokeRect(px, py, BLOCK_SIZE, BLOCK_SIZE * 0.8);
+    g.fillStyle = 'white';
+    g.font = `${BLOCK_SIZE * 0.55}px Anton, sans-serif`;
+    drawText(isChain ? `x${popup.value}` : `${popup.value}`, px + BLOCK_SIZE / 2, py + BLOCK_SIZE * 0.4);
+}
+
 // (x, y) を左側とするペアを囲むカーソルを描画
 function drawCursor(x, y, raiseY, counter) {
     g.translate((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE - raiseY);
@@ -128,11 +158,25 @@ export function render(state) {
     if (showCursor) {
         drawCursor(state.x, state.y, raiseY, state.counter);
     }
+
+    for (const popup of state.popups) {
+        drawPopup(popup, raiseY);
+    }
+
+    renderGauge(state.garbageGauge / GARBAGE_GAUGE_MAX);
+}
+
+// お邪魔ブロックのゲージ（ratio は 0〜1）
+function renderGauge(ratio) {
+    gaugeFillElement.style.width = `${ratio * 100}%`;
+    gaugeElement.classList.toggle('warning', ratio >= GARBAGE_GAUGE_WARNING);
+    gaugeElement.classList.toggle('full', ratio >= 1);
 }
 
 // ゲームオーバー表示（seconds は耐えた秒数）
-export function showGameOver(seconds) {
+export function showGameOver(seconds, maxChain) {
     scoreElement.textContent = seconds.toFixed(1);
+    maxChainElement.textContent = maxChain;
     gameOverElement.style.visibility = 'visible';
     gameOverElement.style.transition = 'filter 0.666s';
     gameOverElement.style.filter = 'blur(0px)';
