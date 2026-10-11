@@ -81,24 +81,31 @@ function drawBlock(type, px, py) {
 
 // お邪魔ブロックを描画（消去中は点滅）
 function drawGarbage(garbage, raiseY) {
-    const edge = BLOCK_SIZE / 16;
-    const width = garbage.width * BLOCK_SIZE;
     const offsetY = garbage.falling ? garbage.count * BLOCK_SIZE / FALL_FRAME : 0;
     const flash = garbage.clearing && (garbage.count & 4) !== 0;
-    g.translate(garbage.x * BLOCK_SIZE, garbage.y * BLOCK_SIZE + offsetY - raiseY);
-    g.fillStyle = flash ? GARBAGE_LIGHT_COLOR : GARBAGE_COLOR;
-    g.fillRect(0, 0, width, BLOCK_SIZE);
-    g.fillStyle = GARBAGE_LIGHT_COLOR;
-    g.fillRect(0, 0, width, edge);
-    g.fillRect(0, 0, edge, BLOCK_SIZE);
-    g.fillStyle = GARBAGE_DARK_COLOR;
-    g.fillRect(0, BLOCK_SIZE - edge, width, edge);
-    g.fillRect(width - edge, 0, edge, BLOCK_SIZE);
+    drawGarbageRect(g, BLOCK_SIZE, garbage.x * BLOCK_SIZE, garbage.y * BLOCK_SIZE + offsetY - raiseY,
+        garbage.width, garbage.height, flash);
+}
+
+// ctx に、(px, py) を左上として幅 width・高さ height マスのお邪魔ブロックを描く（相手のフィールドの描画でも使う）
+export function drawGarbageRect(ctx, size, px, py, width, height, flash = false) {
+    const edge = size / 16;
+    const w = width * size;
+    const h = height * size;
+    ctx.translate(px, py);
+    ctx.fillStyle = flash ? GARBAGE_LIGHT_COLOR : GARBAGE_COLOR;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = GARBAGE_LIGHT_COLOR;
+    ctx.fillRect(0, 0, w, edge);
+    ctx.fillRect(0, 0, edge, h);
+    ctx.fillStyle = GARBAGE_DARK_COLOR;
+    ctx.fillRect(0, h - edge, w, edge);
+    ctx.fillRect(w - edge, 0, edge, h);
     // 中央の模様
-    g.strokeStyle = GARBAGE_DARK_COLOR;
-    g.lineWidth = edge;
-    g.strokeRect(BLOCK_SIZE / 4, BLOCK_SIZE / 4, width - BLOCK_SIZE / 2, BLOCK_SIZE / 2);
-    g.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.strokeStyle = GARBAGE_DARK_COLOR;
+    ctx.lineWidth = edge;
+    ctx.strokeRect(size / 4, size / 4, w - size / 2, h - size / 2);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 // 連鎖数（x2）・同時消し数（4）を描画（時間とともに少しずつ上に浮かぶ）
@@ -164,7 +171,7 @@ export function render(state) {
         drawPopup(popup, raiseY);
     }
 
-    gaugeElement.style.visibility = isGarbageEnabled(state.settings) ? 'visible' : 'hidden';
+    gaugeElement.style.visibility = state.mode === 'solo' && isGarbageEnabled(state.settings) ? 'visible' : 'hidden';
     renderGauge(state.garbageGauge / GARBAGE_GAUGE_MAX);
 }
 

@@ -4,23 +4,28 @@ import {
     SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR, HANG,
     FALL_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, MIN_RAISE_TIME, RAISE_BOOST,
     GARBAGE_GAUGE_MAX, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME,
-    GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, POPUP_FRAME, MIN_COMBO,
+    GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, POPUP_FRAME, MIN_COMBO, VERSUS_GARBAGE_DELAY,
     FLATTEN_WAIT_FRAME, FLATTEN_HORIZONTAL_FRAME, FLATTEN_VERTICAL_FRAME, SHAKE_FRAME
 } from './constants.js';
 import { Block } from './Block.js';
 import { DEFAULT_SETTINGS, getChoice, isGarbageEnabled } from './settings.js';
+import { createRandom } from './random.js';
 
 // ゲーム状態
 export const gameState = {
     settings: DEFAULT_SETTINGS, // 難易度設定（settings.js）
+    mode: 'solo', // 'solo'（ひとりで遊ぶ） | 'versus'（対戦）
+    random: Math.random, // ブロックの並び用の乱数（対戦では相手と同じシード）
+    miscRandom: Math.random, // お邪魔ブロックの位置などその他の乱数
     touched: null, // つかんでいるブロック { x, y, block, targetX }（targetX は指のある列）
     counter: 0,
     raiseCount: 0,
     raiseTime: getChoice(DEFAULT_SETTINGS, 'difficulty').raiseTime,
     blocks: [],
     next: [],
-    garbages: [], // お邪魔ブロック { x, y, width, falling, clearing, count }
-    garbageGauge: 0, // GARBAGE_GAUGE_MAX まで溜まるとお邪魔ブロックが降る
+    garbages: [], // お邪魔ブロック { x, y（一番上の段）, width, height, falling, clearing, count }
+    garbageGauge: 0, // GARBAGE_GAUGE_MAX まで溜まるとお邪魔ブロックが降る（ひとりで遊ぶとき）
+    incoming: [], // 対戦相手から送られてきて、まだ降っていないお邪魔ブロック { width, height, wait }
     chain: 1, // 現在の連鎖数
     maxChain: 1,
     popups: [], // 連鎖数・同時消し数の表示 { x, y, kind: 'chain' | 'combo', value, count }
@@ -52,15 +57,18 @@ function genNext() {
             exclude = EMPTY;
         }
         do {
-            gameState.next[x] = Math.floor(Math.random() * (exclude < 0 ? COLOR_COUNT : COLOR_COUNT - 1));
+            gameState.next[x] = Math.floor(gameState.random() * (exclude < 0 ? COLOR_COUNT : COLOR_COUNT - 1));
             if (gameState.next[x] >= exclude && exclude >= 0) gameState.next[x]++;
         } while (x && gameState.next[x - 1] === gameState.next[x]);
     }
 }
 
-// ゲーム初期化
-export function resetGame(settings = gameState.settings) {
+// ゲーム初期化。対戦では mode: 'versus' と、相手と共通の seed を渡す
+export function resetGame(settings = gameState.settings, { mode = 'solo', seed } = {}) {
     gameState.settings = settings;
+    gameState.mode = mode;
+    gameState.random = seed === undefined ? Math.random : createRandom(seed);
+    gameState.miscRandom = seed === undefined ? Math.random : createRandom(seed ^ 0x9E3779B9);
     gameState.blocks = Array.from({ length: NUM }, () => new Block());
     gameState.next = Array(WIDTH);
 
@@ -69,7 +77,7 @@ export function resetGame(settings = gameState.settings) {
         for (let y = HEIGHT >> 1; y < HEIGHT; ++y) {
             let color;
             do {
-                color = Math.floor(Math.random() * COLOR_COUNT);
+                color = Math.floor(gameState.random() * COLOR_COUNT);
             } while ((x >= 2 && color === blockAt(x - 1, y).type && color === blockAt(x - 2, y).type) ||
                 (y >= 2 && color === blockAt(x, y - 1).type && color === blockAt(x, y - 2).type));
             blockAt(x, y).type = color;
@@ -80,6 +88,7 @@ export function resetGame(settings = gameState.settings) {
     gameState.touched = null;
     gameState.garbages = [];
     gameState.garbageGauge = 0;
+    gameState.incoming = [];
     gameState.chain = 1;
     gameState.maxChain = 1;
     gameState.popups = [];
@@ -230,6 +239,7 @@ function detectMatches() {
             gameState.popups.push({ x: top.x, y: isCombo ? top.y - 1 : top.y, kind: 'chain', value: gameState.chain, count: 0 });
         }
         reduceGarbageGauge(ignited, isChain ? gameState.chain : 1);
+        if (gameState.mode === 'versus') attack(comboAttack(ignited));
     }
     return extinctCount;
 }
@@ -256,43 +266,47 @@ function updateChain() {
             chainContinues ||= b.chain || b.state === EXTINCT || b.state === VANISH;
         }
     }
-    if (!chainContinues) gameState.chain = 1;
+    if (!chainContinues) {
+        // 連鎖が終わったら、連鎖数に応じたお邪魔ブロックを相手に送る
+        if (gameState.mode === 'versus') attack(chainAttack(gameState.chain));
+        gameState.chain = 1;
+    }
 
     for (const popup of gameState.popups) popup.count++;
     gameState.popups = gameState.popups.filter(popup => popup.count < POPUP_FRAME);
 }
 
-// お邪魔ブロックが占めるマス（dy 段ずらした位置）
-function garbageCells(garbage, dy = 0) {
-    return Array.from({ length: garbage.width }, (_, i) => blockAt(garbage.x + i, garbage.y + dy));
+// お邪魔ブロックの段 row（0 が一番上の段）のマス
+function garbageRow(garbage, row) {
+    return Array.from({ length: garbage.width }, (_, i) => blockAt(garbage.x + i, garbage.y + row));
 }
 
 // 幅全体の真下が空いていれば落下できる
 function canGarbageFall(garbage) {
-    return garbage.y + 1 < HEIGHT && garbageCells(garbage, 1).every(b => b.isEmpty() && b.state === NEUTRAL);
+    const below = garbage.y + garbage.height;
+    return below < HEIGHT && garbageRow(garbage, garbage.height).every(b => b.isEmpty() && b.state === NEUTRAL);
 }
 
-// 最上段にお邪魔ブロックを出現させる。置けなければ false を返す
-function spawnGarbage() {
-    const width = GARBAGE_MIN_WIDTH + Math.floor(Math.random() * (GARBAGE_MAX_WIDTH - GARBAGE_MIN_WIDTH + 1));
-    const garbage = {
-        x: Math.floor(Math.random() * (WIDTH - width + 1)),
-        y: 0,
-        width,
-        falling: false,
-        clearing: false,
-        count: 0
-    };
-    const cells = garbageCells(garbage);
-    if (!cells.every(b => b.isEmpty() && b.state === NEUTRAL)) return false;
-    for (const b of cells) {
-        b.type = GARBAGE;
-        b.garbage = garbage;
+// 上の段から幅 width、高さ height のお邪魔ブロックを出現させる。
+// 上が空いている段数しか置けないので、置けた段数を返す（0 なら置けなかった）
+function spawnGarbage(width, height) {
+    const x = Math.floor(gameState.miscRandom() * (WIDTH - width + 1));
+    const garbage = { x, y: 0, width, height: 0, falling: false, clearing: false, count: 0 };
+    while (garbage.height < height
+        && garbageRow(garbage, garbage.height).every(b => b.isEmpty() && b.state === NEUTRAL)) {
+        garbage.height++;
+    }
+    if (garbage.height === 0) return 0;
+    for (let row = 0; row < garbage.height; ++row) {
+        for (const b of garbageRow(garbage, row)) {
+            b.type = GARBAGE;
+            b.garbage = garbage;
+        }
     }
     // 出現したフレームから落下中にして、最上段に居座ったままのせり上がりを防ぐ
     garbage.falling = canGarbageFall(garbage);
     gameState.garbages.push(garbage);
-    return true;
+    return garbage.height;
 }
 
 // 消去を開始し、接しているお邪魔ブロックにも連鎖させる
@@ -301,10 +315,13 @@ function startClearingGarbage(garbage) {
     garbage.clearing = true;
     garbage.count = 0;
 
-    const { x, y, width } = garbage;
-    const neighbors = [[x - 1, y], [x + width, y]];
+    const { x, y, width, height } = garbage;
+    const neighbors = [];
+    for (let j = y; j < y + height; ++j) {
+        neighbors.push([x - 1, j], [x + width, j]);
+    }
     for (let i = x; i < x + width; ++i) {
-        neighbors.push([i, y - 1], [i, y + 1]);
+        neighbors.push([i, y - 1], [i, y + height]);
     }
     for (const [nx, ny] of neighbors) {
         const other = inField(nx, ny) && blockAt(nx, ny).garbage;
@@ -312,35 +329,47 @@ function startClearingGarbage(garbage) {
     }
 }
 
-// お邪魔ブロックを通常のブロックに変える。変化後はしばらく静止してから落下する
+// お邪魔ブロックの一番下の段を通常のブロックに変える（残りの段は1段低いお邪魔ブロックとして残る）。
+// 変化したブロックはしばらく静止してから落下する
 function convertGarbage(garbage) {
-    for (const b of garbageCells(garbage)) {
-        b.type = Math.floor(Math.random() * COLOR_COUNT);
+    for (const b of garbageRow(garbage, garbage.height - 1)) {
+        b.type = Math.floor(gameState.miscRandom() * COLOR_COUNT);
         b.garbage = null;
         b.chain = true; // 変化したブロックが消えれば連鎖になる
         b.setState(HANG);
     }
-    gameState.garbages.splice(gameState.garbages.indexOf(garbage), 1);
+    if (--garbage.height > 0) {
+        garbage.clearing = false;
+        garbage.count = 0;
+    } else {
+        gameState.garbages.splice(gameState.garbages.indexOf(garbage), 1);
+    }
+}
+
+// お邪魔ブロックを1段下へ動かす（各列で、真下の空きマスを一番上へ回す）
+function moveGarbageDown(garbage) {
+    for (let i = 0; i < garbage.width; ++i) {
+        const x = garbage.x + i;
+        const below = blockAt(x, garbage.y + garbage.height);
+        for (let y = garbage.y + garbage.height - 1; y >= garbage.y; --y) {
+            setBlockAt(x, y + 1, blockAt(x, y));
+        }
+        setBlockAt(x, garbage.y, below);
+    }
+    garbage.y++;
 }
 
 // お邪魔ブロックの出現・落下・消去を進める
 function updateGarbages() {
     // 下にあるものから落とす
-    const garbages = [...gameState.garbages].sort((a, b) => b.y - a.y);
+    const garbages = [...gameState.garbages].sort((a, b) => (b.y + b.height) - (a.y + a.height));
     for (const garbage of garbages) {
         if (garbage.clearing) {
             if (++garbage.count >= GARBAGE_CLEAR_FRAME) convertGarbage(garbage);
             continue;
         }
         if (garbage.falling && ++garbage.count >= FALL_FRAME) {
-            // 1マス下の空きマスと入れ替える
-            for (let i = 0; i < garbage.width; ++i) {
-                const x = garbage.x + i;
-                const below = blockAt(x, garbage.y + 1);
-                setBlockAt(x, garbage.y + 1, blockAt(x, garbage.y));
-                setBlockAt(x, garbage.y, below);
-            }
-            garbage.y++;
+            moveGarbageDown(garbage);
             garbage.falling = false;
             if (!canGarbageFall(garbage)) emit('land');
         }
@@ -350,13 +379,84 @@ function updateGarbages() {
         }
     }
 
+    if (gameState.mode === 'versus') {
+        dropIncomingGarbage();
+        return;
+    }
+
     // ゲージが満タンになったら降らせる（置けなければ満タンのまま待つ）
     if (!isGarbageEnabled(gameState.settings)) return;
     const rate = getChoice(gameState.settings, 'difficulty').gaugeRate;
     gameState.garbageGauge = Math.min(gameState.garbageGauge + rate, GARBAGE_GAUGE_MAX);
-    if (gameState.garbageGauge >= GARBAGE_GAUGE_MAX && spawnGarbage()) {
-        gameState.garbageGauge = 0;
+    if (gameState.garbageGauge >= GARBAGE_GAUGE_MAX) {
+        const width = GARBAGE_MIN_WIDTH + Math.floor(gameState.miscRandom() * (GARBAGE_MAX_WIDTH - GARBAGE_MIN_WIDTH + 1));
+        if (spawnGarbage(width, 1)) gameState.garbageGauge = 0;
     }
+}
+
+// ===== 対戦 =====
+
+// 同時消しで送るお邪魔ブロック。幅の合計は「消した数 - 1」で、横幅を超える分は複数に分ける
+export function comboAttack(ignited) {
+    if (ignited < MIN_COMBO) return [];
+    const total = ignited - 1;
+    const count = Math.ceil(total / WIDTH);
+    return Array.from({ length: count }, (_, i) => ({
+        width: Math.floor(total / count) + (i < total % count ? 1 : 0),
+        height: 1
+    })).sort((a, b) => a.width - b.width);
+}
+
+// 連鎖で送るお邪魔ブロック。横いっぱいで「連鎖数 - 1」段
+export function chainAttack(chain) {
+    return chain >= 2 ? [{ width: WIDTH, height: Math.min(chain - 1, HEIGHT - 1) }] : [];
+}
+
+// 攻撃する。まず自分に送られてきているお邪魔ブロックをマス数で打ち消し（相殺）、残りを相手に送る
+function attack(pieces) {
+    const sent = [];
+    for (const piece of pieces) {
+        let power = piece.width * piece.height;
+        while (power > 0 && gameState.incoming.length > 0) {
+            const target = gameState.incoming[0];
+            const cells = target.width * target.height;
+            if (power >= cells) {
+                gameState.incoming.shift();
+                power -= cells;
+            } else {
+                // 一部だけ打ち消す（段のあるものは段を、1段のものは幅を減らす）
+                if (target.height > 1) target.height -= Math.ceil(power / target.width);
+                else target.width -= power;
+                power = 0;
+            }
+        }
+        if (power === piece.width * piece.height) {
+            sent.push({ ...piece });
+        } else if (power > 0) {
+            // 打ち消しきれなかった分を送る
+            sent.push(piece.height > 1
+                ? { width: piece.width, height: Math.ceil(power / piece.width) }
+                : { width: power, height: 1 });
+        }
+    }
+    if (sent.length) emit('attack', { pieces: sent });
+}
+
+// 相手から送られてきたお邪魔ブロックを受け取る（すぐには降らず、予告として溜まる）
+export function receiveGarbage(pieces) {
+    for (const { width, height } of pieces) {
+        gameState.incoming.push({ width: clamp(width, 1, WIDTH), height: clamp(height, 1, HEIGHT - 1), wait: 0 });
+    }
+}
+
+// 送られてきたお邪魔ブロックを降らせる。届いてから少し待ち、自分が連鎖している間は降らせない
+function dropIncomingGarbage() {
+    for (const piece of gameState.incoming) piece.wait++;
+    const next = gameState.incoming[0];
+    if (!next || next.wait < VERSUS_GARBAGE_DELAY || gameState.chain > 1) return;
+    const placed = spawnGarbage(next.width, next.height);
+    if (placed === next.height) gameState.incoming.shift();
+    else next.height -= placed; // 上が空いていない分は、次の機会に降らせる
 }
 
 // キャンバス上の座標（px）をマスの座標に変換
@@ -476,7 +576,7 @@ function flatten() {
         let { to, free } = candidates[0];
         if (candidates.length === 2) {
             const [l, r] = candidates;
-            ({ to, free } = l.free !== r.free ? (l.free > r.free ? l : r) : candidates[Math.floor(Math.random() * 2)]);
+            ({ to, free } = l.free !== r.free ? (l.free > r.free ? l : r) : candidates[Math.floor(gameState.miscRandom() * 2)]);
         }
         const count = Math.min(Math.ceil(free / 2), run.length);
         gave[from] = received[to] = true;
@@ -559,6 +659,20 @@ function raiseRow() {
         if (gameState.touched.y < 1) gameState.touched = null;
     }
     return gameOver;
+}
+
+// 対戦相手の画面に表示する、自分のフィールドの様子
+//   cells: 各マスを1文字で（'0'〜'5' が色、'.' が空き。お邪魔ブロックは garbages で送る）
+export function getSnapshot() {
+    const cells = gameState.blocks.map(b => (b.isColor() && b.isVisible() ? String(b.type) : '.')).join('');
+    return {
+        cells,
+        next: gameState.next.join(''),
+        garbages: gameState.garbages.map(g => [g.x, g.y, g.width, g.height, g.clearing ? 1 : 0]),
+        raise: Math.round(gameState.raiseCount / gameState.raiseTime * 100) / 100,
+        incoming: gameState.incoming.map(p => [p.width, p.height]),
+        chain: gameState.chain
+    };
 }
 
 // ゲーム更新処理。ゲームオーバーなら true を返す
