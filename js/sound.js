@@ -6,7 +6,6 @@ const SOUNDS = {
     chain: { file: 'chain.m4a', volume: 0.6 },
     combo: { file: 'combo.m4a', volume: 0.6 },
     land: { file: 'land.m4a', volume: 0.8 },
-    warning: { file: 'warning.m4a', volume: 0.6 },
     gameover: { file: 'gameover.m4a', volume: 0.7 }
 };
 

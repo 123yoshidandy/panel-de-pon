@@ -3,7 +3,7 @@ import {
     NEUTRAL, EXTINCT, VANISH, FALLING, MOVEDOWN,
     SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR, HANG,
     FALL_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, MIN_RAISE_TIME, RAISE_BOOST,
-    GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME,
+    GARBAGE_GAUGE_MAX, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME,
     GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, POPUP_FRAME, MIN_COMBO
 } from './constants.js';
 import { Block } from './Block.js';
@@ -348,10 +348,7 @@ function updateGarbages() {
     // ゲージが満タンになったら降らせる（置けなければ満タンのまま待つ）
     if (!isGarbageEnabled(gameState.settings)) return;
     const rate = getChoice(gameState.settings, 'gaugeSpeed').gaugeRate;
-    const warning = GARBAGE_GAUGE_MAX * GARBAGE_GAUGE_WARNING;
-    const wasWarning = gameState.garbageGauge >= warning;
     gameState.garbageGauge = Math.min(gameState.garbageGauge + rate, GARBAGE_GAUGE_MAX);
-    if (!wasWarning && gameState.garbageGauge >= warning) emit('warning');
     if (gameState.garbageGauge >= GARBAGE_GAUGE_MAX && spawnGarbage()) {
         gameState.garbageGauge = 0;
     }
