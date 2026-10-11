@@ -460,8 +460,9 @@ function isSettled() {
     return gameState.garbages.every(garbage => !garbage.falling && !garbage.clearing);
 }
 
-// 台を揺らしたように、隣の列より2段以上高い列の一番上のブロックを隣の列へずらして落とす。
-// 1回で動くのは各列1個まで（受け取るのも1個まで）。左右とも低ければ低いほうへ、同じならランダムにずれる。
+// 台を揺らしたように、隣の列より高い列の上の部分を隣の列へずらして落とす。
+// ずれるのは高さの差の半分（切り上げ）で、かたまりのまま順番を保って移る。
+// 左右とも低ければ低いほうへ、同じならランダムにずれる。受け取った列は渡さず、渡した列は受け取らない。
 // 盤面はすぐに移動後の状態にし、移動の様子（横移動→落下）を表す一覧を返す
 function flatten() {
     // 動いている空きマスが、移したブロックの上に落ちてきて上書きしないように止める
@@ -473,45 +474,50 @@ function flatten() {
         while (y < HEIGHT && blockAt(x, y).isEmpty()) y++;
         return HEIGHT - y;
     });
-    const topOf = x => blockAt(x, HEIGHT - heights[x]);
+    // 一番上から続く通常ブロックの数（お邪魔ブロックより下は動かさない）
+    const movable = x => {
+        let n = 0;
+        while (n < heights[x] && blockAt(x, HEIGHT - heights[x] + n).isColor()) n++;
+        return n;
+    };
 
-    // 高い列から順に、ずれる先を決める
+    // 高い列から順に、ずれる先と個数を決めて盤面に反映する
+    const gave = Array(WIDTH).fill(false);
     const received = Array(WIDTH).fill(false);
-    const pairs = [];
+    const moves = [];
     const order = [...Array(WIDTH).keys()].sort((a, b) => heights[b] - heights[a]);
     for (const from of order) {
-        if (heights[from] === 0 || !topOf(from).isColor()) continue; // お邪魔ブロックは動かさない
+        if (received[from] || movable(from) === 0) continue;
         const candidates = [from - 1, from + 1].filter(to =>
-            inField(to, 0) && !received[to] && heights[from] - heights[to] >= 2);
+            inField(to, 0) && !gave[to] && !received[to] && heights[to] < heights[from]);
         if (candidates.length === 0) continue;
         let to = candidates[0];
         if (candidates.length === 2) {
             const [l, r] = candidates;
             to = heights[l] !== heights[r] ? (heights[l] < heights[r] ? l : r) : candidates[Math.floor(Math.random() * 2)];
         }
-        received[to] = true;
-        pairs.push({ from, to });
-    }
+        const count = Math.min(Math.ceil((heights[from] - heights[to]) / 2), movable(from));
+        gave[from] = received[to] = true;
 
-    // 先に各列の一番上を取り除いてから、隣の列に積む
-    const lifted = pairs.map(({ from }) => {
-        const src = topOf(from);
-        const type = src.type;
-        const fromY = HEIGHT - heights[from];
-        src.type = EMPTY;
-        src.chain = false;
-        return { type, fromY };
-    });
-    for (const { from } of pairs) heights[from]--;
-    return pairs.map(({ from, to }, i) => {
-        heights[to]++;
-        const dst = topOf(to);
-        dst.type = lifted[i].type;
-        dst.chain = false;
-        const toY = HEIGHT - heights[to];
-        const duration = FLATTEN_HORIZONTAL_FRAME + (toY - lifted[i].fromY) * FLATTEN_VERTICAL_FRAME;
-        return { type: dst.type, fromX: from, fromY: lifted[i].fromY, toX: to, toY, duration };
-    });
+        // 上の count 個を、順番を保ったまま隣の列に積む（一番下のブロックが一番下に着く）
+        const fromTop = HEIGHT - heights[from];
+        const fall = heights[from] - count - heights[to];
+        for (let i = count - 1; i >= 0; --i) {
+            const fromY = fromTop + i;
+            const toY = fromY + fall;
+            const src = blockAt(from, fromY);
+            const dst = blockAt(to, toY);
+            dst.type = src.type;
+            dst.chain = false;
+            src.type = EMPTY;
+            src.chain = false;
+            const duration = FLATTEN_HORIZONTAL_FRAME + fall * FLATTEN_VERTICAL_FRAME;
+            moves.push({ type: dst.type, fromX: from, fromY, toX: to, toY, duration });
+        }
+        heights[from] -= count;
+        heights[to] += count;
+    }
+    return moves;
 }
 
 // 平滑化で移動中のブロックの位置（マス単位）。到着済みなら null を返す
