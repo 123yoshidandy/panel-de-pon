@@ -13,9 +13,7 @@ import { DEFAULT_SETTINGS, getChoice, isGarbageEnabled } from './settings.js';
 // ゲーム状態
 export const gameState = {
     settings: DEFAULT_SETTINGS, // 難易度設定（settings.js）
-    x: 0, // カーソル位置（入れ替えるペアの左側）
-    y: 0,
-    touched: null, // タッチでつかんでいるブロック { x, y, block, targetX }（targetX は指のある列）
+    touched: null, // つかんでいるブロック { x, y, block, targetX }（targetX は指のある列）
     counter: 0,
     raiseCount: 0,
     raiseTime: getChoice(DEFAULT_SETTINGS, 'difficulty').raiseTime,
@@ -79,8 +77,6 @@ export function resetGame(settings = gameState.settings) {
     }
     genNext();
 
-    gameState.x = WIDTH >> 1;
-    gameState.y = HEIGHT >> 1;
     gameState.touched = null;
     gameState.garbages = [];
     gameState.garbageGauge = 0;
@@ -375,15 +371,8 @@ function pointToCell(px, py) {
 function applyPointerActions(actions) {
     for (const action of actions) {
         switch (action.type) {
-            case 'select': {
-                // マウス: クリックしたマスをペアの左側にする（最上段は選択できない）
-                const cell = pointToCell(action.px, action.py);
-                gameState.x = clamp(cell.x, 0, WIDTH - 2);
-                gameState.y = clamp(cell.y, 1, HEIGHT - 1);
-                break;
-            }
             case 'touch': {
-                // タッチ: 触れたブロックをつかむ（最上段はつかめない）
+                // 押したブロックをつかむ（最上段はつかめない）
                 const cell = pointToCell(action.px, action.py);
                 const valid = cell.x >= 0 && cell.x < WIDTH && cell.y >= 1 && cell.y < HEIGHT;
                 const block = valid && blockAt(cell.x, cell.y);
@@ -416,21 +405,6 @@ function updateDrag() {
     t.x += dx;
     if (t.targetX === t.x || t.block.state !== NEUTRAL) return;
     trySwap(t.targetX > t.x ? t.x : t.x - 1, t.y);
-}
-
-// キー操作でカーソルを移動
-function moveCursor(input) {
-    const { x, y } = gameState;
-    if (input.up) {
-        if (gameState.y > 1) gameState.y--;
-    } else if (input.down) {
-        if (gameState.y < HEIGHT - 1) gameState.y++;
-    } else if (input.right) {
-        if (gameState.x < WIDTH - 2) gameState.x++;
-    } else if (input.left) {
-        if (gameState.x > 0) gameState.x--;
-    }
-    if (gameState.x !== x || gameState.y !== y) emit('move');
 }
 
 // (x, y) と (x + 1, y) のブロックを入れ替える
@@ -580,7 +554,6 @@ function raiseRow() {
     genNext();
     for (const garbage of gameState.garbages) garbage.y--;
     for (const popup of gameState.popups) popup.y--;
-    if (gameState.y > 1) gameState.y--;
     if (gameState.touched) {
         gameState.touched.y--;
         if (gameState.touched.y < 1) gameState.touched = null;
@@ -596,7 +569,6 @@ export function updateGame(input) {
         // 平滑化の移動中は、ブロック・お邪魔ブロック・せり上がりを止める
         updateFlattenMoves();
         applyPointerActions(input.actions);
-        moveCursor(input);
         gameState.counter++;
         return false;
     }
@@ -616,8 +588,6 @@ export function updateGame(input) {
     updateFlatten(input.flatten);
     applyPointerActions(input.actions);
     updateDrag();
-    moveCursor(input);
-    if (input.swap) trySwap(gameState.x, gameState.y);
 
     if (!stopRaise) {
         gameState.raiseCount += input.raise ? RAISE_BOOST : 1;

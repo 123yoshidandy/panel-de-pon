@@ -37,17 +37,9 @@ export function showTitle(onStart) {
             <div class="title-blocks">${blocks}</div>
             <div class="settings">${settingGroups}</div>
             <button type="button" class="start-button">スタート</button>
-            <div class="start-hint">Enter キーでもスタート</div>
             <div class="controls">
                 <div class="control-section">
-                    <h3>キーボード</h3>
-                    <p>↑↓←→ : カーソル移動</p>
-                    <p>Z : 入れ替え</p>
-                    <p>X : せり上げ（押している間）</p>
-                    <p>C : 平滑化</p>
-                </div>
-                <div class="control-section">
-                    <h3>スマートフォン</h3>
+                    <h3>操作方法</h3>
                     <p>ブロックを左右にドラッグ : 移動</p>
                     <p>フィールドの外を長押し : せり上げ</p>
                     <p>フィールドの外をダブルタップ : 平滑化</p>
@@ -57,7 +49,6 @@ export function showTitle(onStart) {
     `;
     document.body.appendChild(titleElement);
 
-    window.addEventListener('keydown', handleTitleKeydown);
     titleElement.querySelector('.start-button').addEventListener('click', startGame);
 }
 
@@ -69,19 +60,11 @@ function readSettings() {
     return settings;
 }
 
-function handleTitleKeydown(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        startGame();
-    }
-}
-
 function startGame() {
-    // ボタンにフォーカスがあると Enter で keydown と click の両方が来る
+    // フェードアウト中に再び押されても二重に開始しない
     if (started) return;
     started = true;
     initSound(); // ユーザー操作の処理中でないと音を鳴らせるようにならない
-    window.removeEventListener('keydown', handleTitleKeydown);
     const settings = readSettings();
     saveSettings(settings);
 

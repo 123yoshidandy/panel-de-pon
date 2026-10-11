@@ -3,7 +3,6 @@ https://creativecommons.org/publicdomain/zero/1.0/
 
 Sound effects
   Interface Sounds / Digital Audio by Kenney (www.kenney.nl)
-  move.m4a     <- Interface Sounds: tick_002.ogg
   swap.m4a     <- Interface Sounds: select_001.ogg
   pop.m4a      <- Interface Sounds: pluck_001.ogg
   combo.m4a    <- Interface Sounds: confirmation_001.ogg

@@ -14,9 +14,6 @@ export let gaugeElement;
 let gaugeFillElement;
 let g;
 
-// タッチ操作の端末ではカーソルを表示しない
-const showCursor = !(('ontouchstart' in window) || navigator.maxTouchPoints > 0);
-
 let scoreElement;
 let maxChainElement;
 
@@ -45,7 +42,6 @@ export function initRenderer({ onRestart, onBackToTitle }) {
             <button type="button" class="game-over-button" data-action="restart">RESTART</button>
             <button type="button" class="game-over-button" data-action="title">タイトルへ</button>
         </div>
-        <div class="game-over-hint">Z / X / Enter : RESTART</div>
     `;
     scoreElement = gameOverElement.querySelector('.game-over-time');
     maxChainElement = gameOverElement.querySelector('.game-over-chain');
@@ -121,24 +117,6 @@ function drawPopup(popup, raiseY) {
     drawText(isChain ? `x${popup.value}` : `${popup.value}`, px + BLOCK_SIZE / 2, py + BLOCK_SIZE * 0.4);
 }
 
-// (x, y) を左側とするペアを囲むカーソルを描画
-function drawCursor(x, y, raiseY, counter) {
-    g.translate((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE - raiseY);
-    g.fillStyle = 'white';
-    g.beginPath();
-    const offset = -((Math.floor(counter / 30) & 1) + BLOCK_SIZE * 0.5);
-    for (let i = 0; i < 2; ++i) {
-        for (let j = 0; j < 4; ++j) {
-            g.rotate(0.5 * Math.PI);
-            g.rect(offset, offset, BLOCK_SIZE / 3, BLOCK_SIZE / 8);
-            g.rect(offset, offset, BLOCK_SIZE / 8, BLOCK_SIZE / 3);
-        }
-        g.translate(BLOCK_SIZE, 0);
-    }
-    g.fill();
-    g.setTransform(1, 0, 0, 1, 0, 0);
-}
-
 // 描画処理
 export function render(state) {
     g.clearRect(0, 0, canvas.width, canvas.height);
@@ -181,9 +159,6 @@ export function render(state) {
         : 0;
     canvas.style.transform = shake ? `translateX(${shake}px)` : '';
 
-    if (showCursor) {
-        drawCursor(state.x, state.y, raiseY, state.counter);
-    }
 
     for (const popup of state.popups) {
         drawPopup(popup, raiseY);

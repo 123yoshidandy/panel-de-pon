@@ -1,6 +1,5 @@
 // 効果音と BGM（音源は sounds/ 以下。いずれも CC0 素材で、出典は sounds/CREDITS.txt）
 const SOUNDS = {
-    move: { file: 'move.m4a', volume: 0.4 },
     swap: { file: 'swap.m4a', volume: 0.6 },
     pop: { file: 'pop.m4a', volume: 0.6 },
     chain: { file: 'chain.m4a', volume: 0.6 },

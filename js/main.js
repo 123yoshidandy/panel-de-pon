@@ -42,7 +42,7 @@ function setup() {
     doLayout();
     window.addEventListener('resize', doLayout);
 
-    initInput(canvas, restart);
+    initInput(canvas);
 }
 
 // ゲームを開始（settings を省略すると前回と同じ設定）
