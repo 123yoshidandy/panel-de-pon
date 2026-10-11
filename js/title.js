@@ -1,5 +1,6 @@
 import { RELIEF, LIGHT_COLORS } from './constants.js';
 import { SETTING_OPTIONS, loadSettings, saveSettings } from './settings.js';
+import { initSound } from './sound.js';
 
 let titleElement;
 let startCallback;
@@ -77,6 +78,7 @@ function startGame() {
     // ボタンにフォーカスがあると Enter で keydown と click の両方が来る
     if (started) return;
     started = true;
+    initSound(); // ユーザー操作の処理中でないと音を鳴らせるようにならない
     window.removeEventListener('keydown', handleTitleKeydown);
     const settings = readSettings();
     saveSettings(settings);

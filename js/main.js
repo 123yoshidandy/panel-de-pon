@@ -3,6 +3,7 @@ import { initInput, pollInput } from './input.js';
 import { doLayout } from './layout.js';
 import { resetGame, updateGame, gameState } from './game.js';
 import { showTitle } from './title.js';
+import { playEventSounds, playSound, setSoundEnabled } from './sound.js';
 import { FRAME_MS } from './constants.js';
 
 // タブ復帰時などに1回の描画で進めるフレーム数の上限
@@ -47,6 +48,7 @@ function setup() {
 // ゲームを開始（settings を省略すると前回と同じ設定）
 function startGame(settings) {
     resetGame(settings);
+    setSoundEnabled(gameState.settings.sound === 'on');
     pollInput(); // 開始前の入力は捨てる
     hideGameOver();
     scene = 'playing';
@@ -60,8 +62,11 @@ function tick(now) {
     pendingTime += Math.min(now - lastTime, FRAME_MS * MAX_FRAMES_PER_TICK);
     lastTime = now;
     for (; pendingTime >= FRAME_MS; pendingTime -= FRAME_MS) {
-        if (updateGame(pollInput())) {
+        const gameOver = updateGame(pollInput());
+        playEventSounds(gameState.events);
+        if (gameOver) {
             scene = 'gameover';
+            playSound('gameover');
             break;
         }
     }

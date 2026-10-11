@@ -2,8 +2,8 @@ import {
     WIDTH, HEIGHT, NUM, BLOCK_SIZE, EMPTY, GARBAGE, COLOR_COUNT,
     NEUTRAL, EXTINCT, VANISH, FALLING, MOVEDOWN,
     SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR, HANG,
-    FALL_FRAME, MIN_RAISE_TIME, RAISE_BOOST,
-    GARBAGE_GAUGE_MAX, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME,
+    FALL_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, MIN_RAISE_TIME, RAISE_BOOST,
+    GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME,
     GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, POPUP_FRAME, MIN_COMBO
 } from './constants.js';
 import { Block } from './Block.js';
@@ -24,8 +24,11 @@ export const gameState = {
     garbageGauge: 0, // GARBAGE_GAUGE_MAX まで溜まるとお邪魔ブロックが降る
     chain: 1, // 現在の連鎖数
     maxChain: 1,
-    popups: [] // 連鎖数・同時消し数の表示 { x, y, kind: 'chain' | 'combo', value, count }
+    popups: [], // 連鎖数・同時消し数の表示 { x, y, kind: 'chain' | 'combo', value, count }
+    events: [] // このフレームで起きた出来事（効果音用）{ type, ... }
 };
+
+const emit = (type, props = {}) => gameState.events.push({ type, ...props });
 
 const inField = (x, y) => x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
 const blockAt = (x, y) => gameState.blocks[x + y * WIDTH];
@@ -79,6 +82,7 @@ export function resetGame(settings = gameState.settings) {
     gameState.chain = 1;
     gameState.maxChain = 1;
     gameState.popups = [];
+    gameState.events = [];
     gameState.counter = 0;
     gameState.raiseCount = 0;
     gameState.raiseTime = getChoice(settings, 'raiseSpeed').raiseTime;
@@ -125,6 +129,9 @@ function updateBlocks() {
             if (b.type === GARBAGE) continue; // お邪魔ブロックは updateGarbages で処理する
             const prevState = b.state;
             b.update();
+            if (b.state === VANISH && b.count === VANISH_FRAME + b.vanishIndex * VANISH_DELAY_FRAME + 1) {
+                emit('pop', { index: b.vanishIndex }); // 見た目の上で消えた瞬間
+            }
             if (prevState === VANISH && b.isEmpty()) {
                 // 消えたブロックの上に積まれていたブロックは、落ちて消えれば連鎖になる
                 b.chain = false;
@@ -210,8 +217,10 @@ function detectMatches() {
         const isCombo = ignited >= MIN_COMBO;
         if (isCombo) {
             gameState.popups.push({ ...top, kind: 'combo', value: ignited, count: 0 });
+            emit('combo', { value: ignited });
         }
         if (isChain) {
+            emit('chain', { value: gameState.chain });
             // 同時消しと重なったら連鎖数をその上に出す
             gameState.popups.push({ x: top.x, y: isCombo ? top.y - 1 : top.y, kind: 'chain', value: gameState.chain, count: 0 });
         }
@@ -328,6 +337,7 @@ function updateGarbages() {
             }
             garbage.y++;
             garbage.falling = false;
+            if (!canGarbageFall(garbage)) emit('land');
         }
         if (!garbage.falling && canGarbageFall(garbage)) {
             garbage.falling = true;
@@ -338,7 +348,10 @@ function updateGarbages() {
     // ゲージが満タンになったら降らせる（置けなければ満タンのまま待つ）
     if (!isGarbageEnabled(gameState.settings)) return;
     const rate = getChoice(gameState.settings, 'gaugeSpeed').gaugeRate;
+    const warning = GARBAGE_GAUGE_MAX * GARBAGE_GAUGE_WARNING;
+    const wasWarning = gameState.garbageGauge >= warning;
     gameState.garbageGauge = Math.min(gameState.garbageGauge + rate, GARBAGE_GAUGE_MAX);
+    if (!wasWarning && gameState.garbageGauge >= warning) emit('warning');
     if (gameState.garbageGauge >= GARBAGE_GAUGE_MAX && spawnGarbage()) {
         gameState.garbageGauge = 0;
     }
@@ -389,6 +402,7 @@ function applyPointerActions(actions) {
 
 // キー操作でカーソルを移動
 function moveCursor(input) {
+    const { x, y } = gameState;
     if (input.up) {
         if (gameState.y > 1) gameState.y--;
     } else if (input.down) {
@@ -398,6 +412,7 @@ function moveCursor(input) {
     } else if (input.left) {
         if (gameState.x > 0) gameState.x--;
     }
+    if (gameState.x !== x || gameState.y !== y) emit('move');
 }
 
 // カーソル位置のブロックを入れ替える
@@ -410,6 +425,7 @@ function trySwap() {
     if (blockAt(x, y - 1).isFalling() || blockAt(x + 1, y - 1).isFalling()) return;
     l.setState(SWAPPING_L);
     r.setState(SWAPPING_R);
+    emit('swap');
 }
 
 // 全体を1段せり上げる。最上段まで埋まっていたら true を返す
@@ -444,6 +460,7 @@ function raiseRow() {
 
 // ゲーム更新処理。ゲームオーバーなら true を返す
 export function updateGame(input) {
+    gameState.events = [];
     let stopRaise = updateBlocks();
 
     const extinctCount = detectMatches();

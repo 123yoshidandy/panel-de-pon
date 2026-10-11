@@ -1,4 +1,4 @@
-// 難易度設定
+// 設定（難易度・効果音）
 export const SETTING_OPTIONS = [
     {
         key: 'raiseSpeed',
@@ -18,10 +18,18 @@ export const SETTING_OPTIONS = [
             { value: 'normal', label: 'ふつう', gaugeRate: 1 },
             { value: 'fast', label: 'はやい', gaugeRate: 1.5 }
         ]
+    },
+    {
+        key: 'sound',
+        label: '効果音',
+        choices: [
+            { value: 'on', label: 'あり' },
+            { value: 'off', label: 'なし' }
+        ]
     }
 ];
 
-export const DEFAULT_SETTINGS = { raiseSpeed: 'normal', gaugeSpeed: 'normal' };
+export const DEFAULT_SETTINGS = { raiseSpeed: 'normal', gaugeSpeed: 'normal', sound: 'on' };
 
 const STORAGE_KEY = 'panel-de-pon-settings';
 
