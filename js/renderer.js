@@ -4,7 +4,7 @@ import {
     GARBAGE_COLOR, GARBAGE_LIGHT_COLOR, GARBAGE_DARK_COLOR, CHAIN_COLOR, COMBO_COLOR,
     GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING
 } from './constants.js';
-import { getRaiseOffset } from './game.js';
+import { getRaiseOffset, flattenMovePosition } from './game.js';
 import { isGarbageEnabled } from './settings.js';
 
 // キャンバスとコンテキスト
@@ -145,10 +145,20 @@ export function render(state) {
     g.font = `${BLOCK_SIZE * 0.8}px メイリオ`;
     const raiseY = getRaiseOffset(state);
 
+    // 平滑化で移動中のブロックは、着地するまで移動先のマスには描かない
+    const flying = [];
+    const hidden = new Set();
+    for (const move of state.flattenMoves) {
+        const pos = flattenMovePosition(move, state.flattenFrame);
+        if (!pos) continue;
+        flying.push({ type: move.type, ...pos });
+        hidden.add(move.toX + move.toY * WIDTH);
+    }
+
     for (let x = 0; x < WIDTH; ++x) {
         for (let y = 0; y < HEIGHT; ++y) {
             const b = state.blocks[x + y * WIDTH];
-            if (b.type !== GARBAGE && b.isVisible()) {
+            if (b.type !== GARBAGE && b.isVisible() && !hidden.has(x + y * WIDTH)) {
                 drawBlock(b.type, x * BLOCK_SIZE + b.offsetX(), y * BLOCK_SIZE + b.offsetY() - raiseY);
             }
         }
@@ -159,6 +169,10 @@ export function render(state) {
 
     for (const garbage of state.garbages) {
         drawGarbage(garbage, raiseY);
+    }
+
+    for (const f of flying) {
+        drawBlock(f.type, f.x * BLOCK_SIZE, f.y * BLOCK_SIZE - raiseY);
     }
 
     if (showCursor) {

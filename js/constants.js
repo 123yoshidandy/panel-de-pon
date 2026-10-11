@@ -52,6 +52,8 @@ export const MIN_COMBO = 4; // 同時消しとして扱う最小の個数
 
 // 平滑化
 export const FLATTEN_WAIT_FRAME = 60; // 盤面が動いている間に要求されたとき、静止するまで待つ最大フレーム数
+export const FLATTEN_HORIZONTAL_FRAME = 4; // 移動するブロックが横に1マス進むフレーム数
+export const FLATTEN_VERTICAL_FRAME = 3; // 移動するブロックが上下に1マス進むフレーム数
 
 // ゲームループ
 export const FRAME_MS = 16; // 1フレームの長さ（ミリ秒）
