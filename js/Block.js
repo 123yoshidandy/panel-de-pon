@@ -1,13 +1,13 @@
 import {
     NEUTRAL, EXTINCT, VANISH, FALLING, MOVEDOWN,
-    SWAPPING_L, SWAPPING_R, SWAPPED, REVITATE, CHECK_FLOOR,
-    SAWP_FRAME, FALL_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME,
-    BLOCK_SIZE
+    SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR,
+    EMPTY, BLOCK_SIZE,
+    SWAP_FRAME, FALL_FRAME, EXTINCT_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, LEVITATE_FRAME
 } from './constants.js';
 
 // ブロッククラス
 export class Block {
-    constructor(type) {
+    constructor(type = EMPTY) {
         this.count = 0;
         this.type = type;
         this.state = NEUTRAL;
@@ -20,35 +20,43 @@ export class Block {
         this.count = 0;
     }
 
+    // 空きマスか
+    isEmpty() {
+        return this.type === EMPTY;
+    }
+
     // 空きブロックと見なせるか
     isVacancy() {
-        return (this.type < 0 && this.state == NEUTRAL) || this.state == FALLING;
+        return (this.isEmpty() && this.state === NEUTRAL) || this.state === FALLING;
     }
 
     // 可視状態
     isVisible() {
-        if (this.type < 0) return false;
-        return this.state == EXTINCT ? this.count & 2 : this.state != VANISH || this.count <= VANISH_FRAME + this.vanishIndex * VANISH_DELAY_FRAME;
+        if (this.isEmpty()) return false;
+        if (this.state === EXTINCT) return (this.count & 2) !== 0; // 点滅
+        return this.state !== VANISH || this.count <= VANISH_FRAME + this.vanishIndex * VANISH_DELAY_FRAME;
     }
 
     // 入れ替え可能ブロックか
     isSwappable() {
-        return this.state == NEUTRAL;
+        return this.state === NEUTRAL;
     }
 
     // 連結可能ブロックか
     isConnectable() {
-        return this.type >= 0 && (this.state == NEUTRAL || (this.state == EXTINCT && this.count == 0));
+        return !this.isEmpty() && (this.state === NEUTRAL || (this.state === EXTINCT && this.count === 0));
     }
 
     // 表示上のXオフセット量
     offsetX() {
-        return this.state == SWAPPING_L || this.state == SWAPPING_R ? (this.state == SWAPPING_L ? 1 : -1) * BLOCK_SIZE : 0;
+        if (this.state === SWAPPING_L) return BLOCK_SIZE;
+        if (this.state === SWAPPING_R) return -BLOCK_SIZE;
+        return 0;
     }
 
     // 表示上のYオフセット量
     offsetY() {
-        return this.state == FALLING ? this.count * BLOCK_SIZE / FALL_FRAME : 0;
+        return this.state === FALLING ? this.count * BLOCK_SIZE / FALL_FRAME : 0;
     }
 
     // 状態更新
@@ -57,24 +65,23 @@ export class Block {
             case NEUTRAL:
                 return;
             case EXTINCT:
-                if (this.count == 50) {
-                    this.setState(VANISH);
-                }
+                if (this.count === EXTINCT_FRAME) this.setState(VANISH);
                 break;
             case VANISH:
-                if (this.count == VANISH_FRAME + this.vanishNum * VANISH_DELAY_FRAME) {
+                if (this.count === VANISH_FRAME + this.vanishNum * VANISH_DELAY_FRAME) {
                     this.setState(NEUTRAL);
-                    this.type = -1;
+                    this.type = EMPTY;
                 }
                 break;
             case FALLING:
-                if (this.count == FALL_FRAME) this.setState(MOVEDOWN);
+                if (this.count === FALL_FRAME) this.setState(MOVEDOWN);
                 break;
             case SWAPPING_L:
-                if (this.count == SAWP_FRAME) this.setState(SWAPPED);
+                // 右側(SWAPPING_R)は左側と一緒に game.js 側で遷移させる
+                if (this.count === SWAP_FRAME) this.setState(SWAPPED);
                 break;
-            case REVITATE:
-                if (this.count == 8) this.setState(CHECK_FLOOR);
+            case LEVITATE:
+                if (this.count === LEVITATE_FRAME) this.setState(CHECK_FLOOR);
                 break;
         }
         this.count++;

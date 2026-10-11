@@ -1,222 +1,136 @@
-import { WIDTH, HEIGHT, BLOCK_SIZE } from './constants.js';
-import { gameState } from './game.js';
+import { BLOCK_SIZE } from './constants.js';
 
-// キー状態
-export let upKey = false;
-export let leftKey = false;
-export let rightKey = false;
-export let downKey = false;
-export let swapKey = false;
-export let raiseKey = false;
+// キー状態（raise 以外は1フレームごとにリセット）
+const keys = { up: false, down: false, left: false, right: false, swap: false, raise: false };
 
-// タッチ操作用変数
-let touchStartX = null;
-let touchStartY = null;
-let swapDirection = null;
-let accelerateTouchId = null; // 加速用タッチのID
+// マウス・タッチ操作（座標はキャンバスの描画領域基準のピクセル）
+let pointerActions = [];
 
-// 入力状態のリセット
-export function resetKeys() {
-    upKey = false;
-    leftKey = false;
-    rightKey = false;
-    downKey = false;
-    swapKey = false;
+const DIRECTION_KEYS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+const SWIPE_THRESHOLD_RATIO = 1 / 3; // スワイプと見なす移動量（ブロック比）
+
+let canvas;
+let onConfirm;
+let swipe = null; // キャンバス上のタッチ { id, px, py, done }
+let raiseTouchId = null; // 加速用タッチのID
+
+// 1フレーム分の入力を取り出す
+export function pollInput() {
+    const input = { ...keys, actions: pointerActions };
+    pointerActions = [];
+    keys.up = keys.down = keys.left = keys.right = keys.swap = false;
+    return input;
 }
 
-// 入力処理の初期化
-export function initInput(canvas, continueCallback) {
-    // キーボードイベント
-    window.addEventListener('keydown', function(ev) {
-        switch (ev.keyCode) {
-            case 37: // left
-                leftKey = true;
-                ev.preventDefault();
-                break;
-            case 38: // up
-                upKey = true;
-                ev.preventDefault();
-                break;
-            case 39: // right
-                rightKey = true;
-                ev.preventDefault();
-                break;
-            case 40: // down
-                downKey = true;
-                ev.preventDefault();
-                break;
-            case 90: // Z
-                swapKey = !ev.repeat;
-                break;
-            case 88: // X
-                if (!ev.repeat) raiseKey = true;
-                break;
-        }
-        if (continueCallback && (swapKey || raiseKey)) {
-            continueCallback();
-        }
-    });
+// 入力処理の初期化。onConfirmCallback は入れ替え・加速キーが押されたときに呼ばれる
+export function initInput(targetCanvas, onConfirmCallback) {
+    canvas = targetCanvas;
+    onConfirm = onConfirmCallback;
 
-    window.addEventListener('keyup', function(ev) {
-        switch (ev.keyCode) {
-            case 88: // X
-                raiseKey = false;
-                break;
-        }
-    });
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
 
-    // マウスイベント
     canvas.addEventListener('mousedown', onMouseDown);
     canvas.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('touchstart', onTouchStart);
     canvas.addEventListener('touchmove', onTouchMove);
     canvas.addEventListener('touchend', onTouchEnd);
+    canvas.addEventListener('touchcancel', onTouchEnd);
 
     // 画面全体のタッチイベント（加速用）
     document.addEventListener('touchstart', onDocumentTouchStart);
     document.addEventListener('touchend', onDocumentTouchEnd);
+    document.addEventListener('touchcancel', onDocumentTouchEnd);
 }
+
+function onKeyDown(ev) {
+    const direction = DIRECTION_KEYS[ev.code];
+    if (direction) {
+        keys[direction] = true;
+        ev.preventDefault();
+        return;
+    }
+    if (ev.repeat) return;
+    if (ev.code === 'KeyZ') {
+        keys.swap = true;
+    } else if (ev.code === 'KeyX') {
+        keys.raise = true;
+    } else {
+        return;
+    }
+    onConfirm?.();
+}
+
+function onKeyUp(ev) {
+    if (ev.code === 'KeyX') keys.raise = false;
+}
+
+// クライアント座標をキャンバスの描画領域基準の座標に変換（枠線の分を除く）
+function toCanvasPoint(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        px: clientX - rect.left - canvas.clientLeft,
+        py: clientY - rect.top - canvas.clientTop
+    };
+}
+
+const findTouch = (touches, id) => Array.from(touches).find(t => t.identifier === id);
 
 function onMouseDown(ev) {
-    const rect = ev.currentTarget.getBoundingClientRect();
-
-    // タッチイベントとマウスイベントを区別
-    let clientX, clientY;
-    if (ev.touches && ev.touches.length > 0) {
-        clientX = ev.touches[0].clientX;
-        clientY = ev.touches[0].clientY;
-    } else {
-        clientX = ev.clientX;
-        clientY = ev.clientY;
-    }
-
-    // スケーリングを考慮した座標計算
-    const mouseX = (clientX - rect.left) / gameState.currentScale;
-    const mouseY = (clientY - rect.top) / gameState.currentScale;
-
-    gameState.x = Math.floor((mouseX - BLOCK_SIZE / 2) / BLOCK_SIZE);
-    const currentRaiseY = Math.floor(BLOCK_SIZE * gameState.raiseCount / gameState.raiseTime);
-    gameState.y = Math.floor((mouseY - BLOCK_SIZE / 2 + currentRaiseY) / BLOCK_SIZE);
-    // カーソル位置を有効範囲内に制限
-    gameState.x = Math.max(0, Math.min(gameState.x, WIDTH - 2));
-    gameState.y = Math.max(0, Math.min(gameState.y, HEIGHT - 1));
+    pointerActions.push({ type: 'select', ...toCanvasPoint(ev.clientX, ev.clientY) });
 }
 
-function onMouseUp(ev) {
-    swapKey = !ev.repeat;
+function onMouseUp() {
+    keys.swap = true;
 }
 
-// タッチイベント処理
 function onTouchStart(ev) {
     ev.preventDefault();
-    if (ev.touches.length === 0) return;
-
-    const rect = ev.currentTarget.getBoundingClientRect();
-    const touch = ev.touches[0];
-
-    touchStartX = (touch.clientX - rect.left) / gameState.currentScale;
-    touchStartY = (touch.clientY - rect.top) / gameState.currentScale;
-
-    // タッチ位置を取得
-    const touchX = Math.floor((touchStartX - BLOCK_SIZE / 2) / BLOCK_SIZE);
-    const currentRaiseY = Math.floor(BLOCK_SIZE * gameState.raiseCount / gameState.raiseTime);
-    const touchY = Math.floor((touchStartY - BLOCK_SIZE / 2 + currentRaiseY) / BLOCK_SIZE);
-
-    // タッチ位置を有効範囲内に制限
-    gameState.x = Math.max(0, Math.min(touchX, WIDTH - 1));
-    gameState.y = Math.max(0, Math.min(touchY, HEIGHT - 1));
-
-    swapDirection = null;
+    const touch = ev.changedTouches[0];
+    const point = toCanvasPoint(touch.clientX, touch.clientY);
+    swipe = { id: touch.identifier, ...point, done: false };
+    pointerActions.push({ type: 'touch', ...point });
 }
 
 function onTouchMove(ev) {
     ev.preventDefault();
-    if (ev.touches.length === 0 || touchStartX === null) return;
+    if (!swipe || swipe.done) return;
+    const touch = findTouch(ev.changedTouches, swipe.id);
+    if (!touch) return;
 
-    const rect = ev.currentTarget.getBoundingClientRect();
-    const touch = ev.touches[0];
+    const { px, py } = toCanvasPoint(touch.clientX, touch.clientY);
+    const dx = px - swipe.px;
+    const dy = py - swipe.py;
 
-    const currentX = (touch.clientX - rect.left) / gameState.currentScale;
-    const currentY = (touch.clientY - rect.top) / gameState.currentScale;
-
-    const deltaX = currentX - touchStartX;
-    const deltaY = currentY - touchStartY;
-
-    // スワイプの閾値（1/3ブロック分）
-    const threshold = BLOCK_SIZE / 3;
-
-    // 横スワイプでブロック入れ替え（一度だけ実行）
-    if (swapDirection === null && Math.abs(deltaX) > threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-        if (deltaX > 0) {
-            // 右スワイプ: タッチしたブロックを右に移動
-            if (gameState.x < WIDTH - 1) {
-                // 右端でない場合のみ実行
-                swapDirection = 'right';
-                swapKey = true;
-            }
-        } else {
-            // 左スワイプ: タッチしたブロックを左に移動
-            if (gameState.x > 0) {
-                // 左端でない場合
-                gameState.x--; // カーソルを左に移動
-                swapDirection = 'left';
-                swapKey = true;
-            } else if (gameState.x == WIDTH - 1) {
-                // 右端をタッチした場合、左のブロックと入れ替え
-                gameState.x = WIDTH - 2; // カーソルを左側のペアに設定
-                swapDirection = 'left';
-                swapKey = true;
-            }
-        }
+    // 横スワイプでブロック入れ替え（1回のタッチにつき一度だけ）
+    if (Math.abs(dx) > BLOCK_SIZE * SWIPE_THRESHOLD_RATIO && Math.abs(dx) > Math.abs(dy)) {
+        swipe.done = true;
+        pointerActions.push({ type: 'swipe', dir: Math.sign(dx) });
     }
 }
 
 function onTouchEnd(ev) {
     ev.preventDefault();
-
-    touchStartX = null;
-    touchStartY = null;
-    swapDirection = null;
+    if (swipe && findTouch(ev.changedTouches, swipe.id)) swipe = null;
 }
 
-// 画面全体のタッチ処理（加速用）
+// キャンバスの外側をタッチしている間は加速
 function onDocumentTouchStart(ev) {
-    // ゲーム画面以外の場所をタッチした場合
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return;
-
+    if (raiseTouchId !== null) return;
     const rect = canvas.getBoundingClientRect();
-
-    // 複数のタッチポイントをチェック
-    for (let i = 0; i < ev.touches.length; i++) {
-        const touch = ev.touches[i];
-        const x = touch.clientX;
-        const y = touch.clientY;
-
-        // キャンバスの外側をタッチしているかチェック
+    for (const touch of ev.changedTouches) {
+        const { clientX: x, clientY: y } = touch;
         if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-            // 加速開始
-            accelerateTouchId = touch.identifier;
-            raiseKey = true;
+            raiseTouchId = touch.identifier;
+            keys.raise = true;
             break;
         }
     }
 }
 
 function onDocumentTouchEnd(ev) {
-    // 離されたタッチをチェック
-    let accelerateTouchEnded = true;
-
-    for (let i = 0; i < ev.touches.length; i++) {
-        if (ev.touches[i].identifier === accelerateTouchId) {
-            accelerateTouchEnded = false;
-            break;
-        }
-    }
-
-    // 加速用のタッチが終了した場合
-    if (accelerateTouchEnded && accelerateTouchId !== null) {
-        accelerateTouchId = null;
-        raiseKey = false;
+    if (raiseTouchId !== null && findTouch(ev.changedTouches, raiseTouchId)) {
+        raiseTouchId = null;
+        keys.raise = false;
     }
 }

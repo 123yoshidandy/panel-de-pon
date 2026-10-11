@@ -1,75 +1,62 @@
 import { initRenderer, render, showGameOver, hideGameOver } from './renderer.js';
-import { initInput, raiseKey } from './input.js';
+import { initInput, pollInput } from './input.js';
 import { doLayout } from './layout.js';
 import { resetGame, updateGame, gameState } from './game.js';
 import { initTitle } from './title.js';
+import { FRAME_MS } from './constants.js';
 
-let continueFunc;
-let gameInitialized = false;
+// タブ復帰時などに1回の描画で進めるフレーム数の上限
+const MAX_FRAMES_PER_TICK = 5;
 
-// 初期化
-function init() {
-    // タイトル画面を表示
-    initTitle(() => {
-        startGameFromTitle();
-    });
-}
+let isGameOver = false;
+let lastTime = 0;
+let pendingTime = 0;
 
-// タイトル画面からゲームを開始
-function startGameFromTitle() {
-    if (!gameInitialized) {
-        // 初回のみ初期化
-        initGame();
-        gameInitialized = true;
-    }
+// 描画・入力の初期化
+function setup() {
+    const canvas = initRenderer();
 
-    // ゲームを開始
-    resetGame();
-    hideGameOver();
-    startGameLoop();
-}
-
-// ゲームの初期化
-function initGame() {
-    // 描画の初期化
-    const { canvas } = initRenderer();
-
-    // レイアウト処理
     doLayout();
     window.addEventListener('resize', doLayout);
 
-    // 入力処理の初期化
+    // ゲームオーバー中に入れ替え・加速キーでリスタート
     initInput(canvas, () => {
-        if (continueFunc) {
-            continueFunc();
-            continueFunc = null;
-        }
+        if (isGameOver) startGame();
     });
 }
 
-// ゲームループ
-function startGameLoop() {
-    gameState.intervalKey = setInterval(updateFunc, 16);
+// ゲームを開始
+function startGame() {
+    resetGame();
+    pollInput(); // 開始前の入力は捨てる
+    hideGameOver();
+    isGameOver = false;
+    lastTime = performance.now();
+    pendingTime = 0;
+    requestAnimationFrame(tick);
 }
 
-// 更新処理
-function updateFunc() {
-    const gameOver = updateGame();
-
-    if (gameOver) {
-        // ゲームオーバー処理
-        showGameOver();
-        clearInterval(gameState.intervalKey);
-        continueFunc = () => {
-            resetGame();
-            hideGameOver();
-            startGameLoop();
-        };
+// ゲームループ。表示のリフレッシュレートに関係なく FRAME_MS ごとに1フレーム進める
+function tick(now) {
+    pendingTime += Math.min(now - lastTime, FRAME_MS * MAX_FRAMES_PER_TICK);
+    lastTime = now;
+    for (; pendingTime >= FRAME_MS; pendingTime -= FRAME_MS) {
+        if (updateGame(pollInput())) {
+            isGameOver = true;
+            break;
+        }
     }
 
-    // 描画
-    render(gameState.blocks, gameState.next);
+    render(gameState);
+
+    if (isGameOver) {
+        showGameOver();
+    } else {
+        requestAnimationFrame(tick);
+    }
 }
 
-// 開始
-init();
+initTitle(() => {
+    setup();
+    startGame();
+});
