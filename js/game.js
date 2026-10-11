@@ -14,7 +14,7 @@ export const gameState = {
     settings: DEFAULT_SETTINGS, // 難易度設定（settings.js）
     x: 0, // カーソル位置（入れ替えるペアの左側）
     y: 0,
-    touched: null, // タッチ中のマス { x, y }
+    touched: null, // タッチでつかんでいるブロック { x, y, block, targetX }（targetX は指のある列）
     counter: 0,
     raiseCount: 0,
     raiseTime: getChoice(DEFAULT_SETTINGS, 'raiseSpeed').raiseTime,
@@ -362,9 +362,8 @@ function pointToCell(px, py) {
     };
 }
 
-// マウス・タッチ操作を反映する。入れ替えが要求されたら true を返す
+// マウス・タッチ操作を反映する
 function applyPointerActions(actions) {
-    let swap = false;
     for (const action of actions) {
         switch (action.type) {
             case 'select': {
@@ -375,26 +374,39 @@ function applyPointerActions(actions) {
                 break;
             }
             case 'touch': {
+                // タッチ: 触れたブロックをつかむ（最上段はつかめない）
                 const cell = pointToCell(action.px, action.py);
                 const valid = cell.x >= 0 && cell.x < WIDTH && cell.y >= 1 && cell.y < HEIGHT;
-                gameState.touched = valid ? cell : null;
+                const block = valid && blockAt(cell.x, cell.y);
+                gameState.touched = block && block.isColor() ? { ...cell, block, targetX: cell.x } : null;
                 break;
             }
-            case 'swipe': {
-                // タッチしたブロックをスワイプ方向へ動かす
-                const t = gameState.touched;
-                if (!t) break;
-                const left = action.dir > 0 ? t.x : t.x - 1;
-                if (left < 0 || left > WIDTH - 2) break;
-                gameState.x = left;
-                gameState.y = t.y;
+            case 'drag':
+                if (gameState.touched) {
+                    gameState.touched.targetX = clamp(Math.floor(action.px / BLOCK_SIZE), 0, WIDTH - 1);
+                }
+                break;
+            case 'release':
                 gameState.touched = null;
-                swap = true;
                 break;
-            }
         }
     }
-    return swap;
+}
+
+// つかんでいるブロックを、指のある列に向かって1マスずつ入れ替えながら動かす
+function updateDrag() {
+    const t = gameState.touched;
+    if (!t) return;
+    // 入れ替えが終わるとブロックは隣のマスへ移っている
+    const dx = [0, 1, -1].find(d => inField(t.x + d, t.y) && blockAt(t.x + d, t.y) === t.block);
+    if (dx === undefined || !t.block.isColor()) {
+        // 消えた・落下したなどで見失ったら離す
+        gameState.touched = null;
+        return;
+    }
+    t.x += dx;
+    if (t.targetX === t.x || t.block.state !== NEUTRAL) return;
+    trySwap(t.targetX > t.x ? t.x : t.x - 1, t.y);
 }
 
 // キー操作でカーソルを移動
@@ -412,9 +424,8 @@ function moveCursor(input) {
     if (gameState.x !== x || gameState.y !== y) emit('move');
 }
 
-// カーソル位置のブロックを入れ替える
-function trySwap() {
-    const { x, y } = gameState;
+// (x, y) と (x + 1, y) のブロックを入れ替える
+function trySwap(x, y) {
     const l = blockAt(x, y);
     const r = blockAt(x + 1, y);
     if (!l.isSwappable() || !r.isSwappable()) return;
@@ -471,9 +482,10 @@ export function updateGame(input) {
     // お邪魔ブロックの落下中・消去中はせり上げない
     stopRaise ||= gameState.garbages.some(garbage => garbage.falling || garbage.clearing);
 
-    const swipe = applyPointerActions(input.actions);
+    applyPointerActions(input.actions);
+    updateDrag();
     moveCursor(input);
-    if (input.swap || swipe) trySwap();
+    if (input.swap) trySwap(gameState.x, gameState.y);
 
     if (!stopRaise) {
         gameState.raiseCount += input.raise ? RAISE_BOOST : 1;

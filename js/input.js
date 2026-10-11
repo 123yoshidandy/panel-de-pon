@@ -1,5 +1,3 @@
-import { BLOCK_SIZE } from './constants.js';
-
 // キー状態（raise 以外は1フレームごとにリセット）
 const keys = { up: false, down: false, left: false, right: false, swap: false, raise: false };
 
@@ -7,11 +5,10 @@ const keys = { up: false, down: false, left: false, right: false, swap: false, r
 let pointerActions = [];
 
 const DIRECTION_KEYS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
-const SWIPE_THRESHOLD_RATIO = 1 / 3; // スワイプと見なす移動量（ブロック比）
 
 let canvas;
 let onConfirm;
-let swipe = null; // キャンバス上のタッチ { id, px, py, done }
+let dragTouchId = null; // ブロックをつかんでいるタッチのID
 let raiseTouchId = null; // 加速用タッチのID
 
 // 1フレーム分の入力を取り出す
@@ -92,34 +89,27 @@ function onMouseUp(ev) {
     keys.swap = true;
 }
 
+// タッチしたブロックをつかみ、指を左右に動かすとついてくる
 function onTouchStart(ev) {
     ev.preventDefault();
     const touch = ev.changedTouches[0];
-    const point = toCanvasPoint(touch.clientX, touch.clientY);
-    swipe = { id: touch.identifier, ...point, done: false };
-    pointerActions.push({ type: 'touch', ...point });
+    dragTouchId = touch.identifier;
+    pointerActions.push({ type: 'touch', ...toCanvasPoint(touch.clientX, touch.clientY) });
 }
 
 function onTouchMove(ev) {
     ev.preventDefault();
-    if (!swipe || swipe.done) return;
-    const touch = findTouch(ev.changedTouches, swipe.id);
+    const touch = dragTouchId !== null && findTouch(ev.changedTouches, dragTouchId);
     if (!touch) return;
-
-    const { px, py } = toCanvasPoint(touch.clientX, touch.clientY);
-    const dx = px - swipe.px;
-    const dy = py - swipe.py;
-
-    // 横スワイプでブロック入れ替え（1回のタッチにつき一度だけ）
-    if (Math.abs(dx) > BLOCK_SIZE * SWIPE_THRESHOLD_RATIO && Math.abs(dx) > Math.abs(dy)) {
-        swipe.done = true;
-        pointerActions.push({ type: 'swipe', dir: Math.sign(dx) });
-    }
+    pointerActions.push({ type: 'drag', ...toCanvasPoint(touch.clientX, touch.clientY) });
 }
 
 function onTouchEnd(ev) {
     ev.preventDefault();
-    if (swipe && findTouch(ev.changedTouches, swipe.id)) swipe = null;
+    if (dragTouchId !== null && findTouch(ev.changedTouches, dragTouchId)) {
+        dragTouchId = null;
+        pointerActions.push({ type: 'release' });
+    }
 }
 
 // キャンバスの外側をタッチしている間は加速

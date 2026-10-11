@@ -47,7 +47,7 @@ export function showTitle(onStart) {
                 </div>
                 <div class="control-section">
                     <h3>スマートフォン</h3>
-                    <p>左右にスワイプ : 入れ替え</p>
+                    <p>ブロックを左右にドラッグ : 移動</p>
                     <p>フィールドの外を長押し : せり上げ</p>
                 </div>
             </div>
