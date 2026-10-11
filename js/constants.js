@@ -9,9 +9,11 @@ export const SWAPPING_L = 6; // 入れ替え中（左側）
 export const SWAPPED = 7; // 入れ替え完了
 export const LEVITATE = 8; // 浮遊中
 export const CHECK_FLOOR = 9; // 浮遊終了
+export const HANG = 10; // お邪魔ブロックから変化した直後の静止中
 
 // ブロックの種類
 export const EMPTY = -1; // 空きマス
+export const GARBAGE = -2; // お邪魔ブロック
 export const COLOR_COUNT = 6;
 
 // 寸法
@@ -35,6 +37,13 @@ export const INITIAL_RAISE_TIME = 600; // 1段せり上がるまでのフレー�
 export const MIN_RAISE_TIME = 40; // 1段せり上がるまでのフレーム数（下限）
 export const RAISE_BOOST = 20; // 加速中に1フレームで進むせり上がり量
 
+// お邪魔ブロック
+export const GARBAGE_INTERVAL = 720; // 出現間隔（フレーム数）
+export const GARBAGE_MIN_WIDTH = 3;
+export const GARBAGE_MAX_WIDTH = 6;
+export const GARBAGE_CLEAR_FRAME = 60; // 消去開始からブロックに変わるまでのフレーム数
+export const GARBAGE_HANG_FRAME = 45; // ブロックに変わってから落下を始めるまでのフレーム数
+
 // ゲームループ
 export const FRAME_MS = 16; // 1フレームの長さ（ミリ秒）
 
@@ -43,6 +52,9 @@ export const RELIEF = ['♥', '●', '▼', '◆', '★', '▲'];
 export const LIGHT_COLORS = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)', 'rgb(128,0,128)', 'rgb(255,255,0)', 'rgb(0,255,255)'];
 export const COLORS = ['rgb(192,0,0)', 'rgb(0,192,0)', 'rgb(0,0,192)', 'rgb(96,0,96)', 'rgb(192,192,0)', 'rgb(0,192,192)'];
 export const DARK_COLORS = ['rgb(128,0,0)', 'rgb(0,128,0)', 'rgb(0,0,128)', 'rgb(64,0,64)', 'rgb(128,128,0)', 'rgb(0,128,128)'];
+export const GARBAGE_COLOR = 'rgb(112,112,144)';
+export const GARBAGE_LIGHT_COLOR = 'rgb(176,176,208)';
+export const GARBAGE_DARK_COLOR = 'rgb(64,64,88)';
 
 // ブロックサイズを更新する
 export function setBlockSize(size) {

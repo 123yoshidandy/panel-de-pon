@@ -1,8 +1,9 @@
 import {
-    WIDTH, HEIGHT, NUM, BLOCK_SIZE, EMPTY, COLOR_COUNT,
+    WIDTH, HEIGHT, NUM, BLOCK_SIZE, EMPTY, GARBAGE, COLOR_COUNT,
     NEUTRAL, EXTINCT, FALLING, MOVEDOWN,
-    SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR,
-    INITIAL_RAISE_TIME, MIN_RAISE_TIME, RAISE_BOOST
+    SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR, HANG,
+    FALL_FRAME, INITIAL_RAISE_TIME, MIN_RAISE_TIME, RAISE_BOOST,
+    GARBAGE_INTERVAL, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH, GARBAGE_CLEAR_FRAME
 } from './constants.js';
 import { Block } from './Block.js';
 
@@ -15,9 +16,12 @@ export const gameState = {
     raiseCount: 0,
     raiseTime: INITIAL_RAISE_TIME,
     blocks: [],
-    next: []
+    next: [],
+    garbages: [], // お邪魔ブロック { x, y, width, falling, clearing, count }
+    garbageTimer: 0
 };
 
+const inField = (x, y) => x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
 const blockAt = (x, y) => gameState.blocks[x + y * WIDTH];
 const setBlockAt = (x, y, b) => { gameState.blocks[x + y * WIDTH] = b; };
 const clamp = (v, min, max) => Math.max(min, Math.min(v, max));
@@ -63,6 +67,8 @@ export function resetGame() {
     gameState.x = WIDTH >> 1;
     gameState.y = HEIGHT >> 1;
     gameState.touched = null;
+    gameState.garbages = [];
+    gameState.garbageTimer = 0;
     gameState.counter = 0;
     gameState.raiseCount = 0;
     gameState.raiseTime = INITIAL_RAISE_TIME;
@@ -99,13 +105,14 @@ function judge(x, y) {
     return num;
 }
 
-// 各ブロックの状態を進め、落下・入れ替えを反映する。発火中のブロックがあれば true を返す
+// 各ブロックの状態を進め、落下・入れ替えを反映する。せり上がりを止めるべきなら true を返す
 function updateBlocks() {
-    let hasExtinct = false;
+    let stopRaise = false;
     for (let x = 0; x < WIDTH; ++x) {
         // 落下が下から順に伝わるよう、下の段から処理する
         for (let y = HEIGHT - 1; y >= 0; --y) {
             let b = blockAt(x, y);
+            if (b.type === GARBAGE) continue; // お邪魔ブロックは updateGarbages で処理する
             b.update();
             let fallCheck = HEIGHT; // この段の下が空いていれば、その上のブロックを落とす
             if (b.state === MOVEDOWN) {
@@ -134,12 +141,13 @@ function updateBlocks() {
                 if (blockAt(x, fallCheck).isVacancy()) blockAt(x, fallCheck - 1).setState(FALLING);
             } else if (y > 0 && b.isVacancy()) {
                 const above = blockAt(x, y - 1);
-                if (!above.isEmpty() && above.state === NEUTRAL) above.setState(FALLING);
+                if (above.isColor() && above.state === NEUTRAL) above.setState(FALLING);
             }
-            hasExtinct ||= b.state === EXTINCT;
+            // 発火中、またはお邪魔ブロックから変化した直後の静止中
+            stopRaise ||= b.state === EXTINCT || b.state === HANG;
         }
     }
-    return hasExtinct;
+    return stopRaise;
 }
 
 // 消滅判定。発火させた数を返す
@@ -159,8 +167,110 @@ function detectMatches() {
                 b.vanishNum = extinctCount;
             }
         }
+        // 発火したブロックに接しているお邪魔ブロックを消去する
+        for (let x = 0; x < WIDTH; ++x) {
+            for (let y = 0; y < HEIGHT; ++y) {
+                const b = blockAt(x, y);
+                if (b.state !== EXTINCT || b.count !== 0) continue;
+                for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+                    const garbage = inField(nx, ny) && blockAt(nx, ny).garbage;
+                    if (garbage) startClearingGarbage(garbage);
+                }
+            }
+        }
     }
     return extinctCount;
+}
+
+// お邪魔ブロックが占めるマス（dy 段ずらした位置）
+function garbageCells(garbage, dy = 0) {
+    return Array.from({ length: garbage.width }, (_, i) => blockAt(garbage.x + i, garbage.y + dy));
+}
+
+// 幅全体の真下が空いていれば落下できる
+function canGarbageFall(garbage) {
+    return garbage.y + 1 < HEIGHT && garbageCells(garbage, 1).every(b => b.isEmpty() && b.state === NEUTRAL);
+}
+
+// 最上段にお邪魔ブロックを出現させる。置けなければ false を返す
+function spawnGarbage() {
+    const width = GARBAGE_MIN_WIDTH + Math.floor(Math.random() * (GARBAGE_MAX_WIDTH - GARBAGE_MIN_WIDTH + 1));
+    const garbage = {
+        x: Math.floor(Math.random() * (WIDTH - width + 1)),
+        y: 0,
+        width,
+        falling: false,
+        clearing: false,
+        count: 0
+    };
+    const cells = garbageCells(garbage);
+    if (!cells.every(b => b.isEmpty() && b.state === NEUTRAL)) return false;
+    for (const b of cells) {
+        b.type = GARBAGE;
+        b.garbage = garbage;
+    }
+    // 出現したフレームから落下中にして、最上段に居座ったままのせり上がりを防ぐ
+    garbage.falling = canGarbageFall(garbage);
+    gameState.garbages.push(garbage);
+    return true;
+}
+
+// 消去を開始し、接しているお邪魔ブロックにも連鎖させる
+function startClearingGarbage(garbage) {
+    if (garbage.clearing || garbage.falling) return;
+    garbage.clearing = true;
+    garbage.count = 0;
+
+    const { x, y, width } = garbage;
+    const neighbors = [[x - 1, y], [x + width, y]];
+    for (let i = x; i < x + width; ++i) {
+        neighbors.push([i, y - 1], [i, y + 1]);
+    }
+    for (const [nx, ny] of neighbors) {
+        const other = inField(nx, ny) && blockAt(nx, ny).garbage;
+        if (other) startClearingGarbage(other);
+    }
+}
+
+// お邪魔ブロックを通常のブロックに変える。変化後はしばらく静止してから落下する
+function convertGarbage(garbage) {
+    for (const b of garbageCells(garbage)) {
+        b.type = Math.floor(Math.random() * COLOR_COUNT);
+        b.garbage = null;
+        b.setState(HANG);
+    }
+    gameState.garbages.splice(gameState.garbages.indexOf(garbage), 1);
+}
+
+// お邪魔ブロックの出現・落下・消去を進める
+function updateGarbages() {
+    // 下にあるものから落とす
+    const garbages = [...gameState.garbages].sort((a, b) => b.y - a.y);
+    for (const garbage of garbages) {
+        if (garbage.clearing) {
+            if (++garbage.count >= GARBAGE_CLEAR_FRAME) convertGarbage(garbage);
+            continue;
+        }
+        if (garbage.falling && ++garbage.count >= FALL_FRAME) {
+            // 1マス下の空きマスと入れ替える
+            for (let i = 0; i < garbage.width; ++i) {
+                const x = garbage.x + i;
+                const below = blockAt(x, garbage.y + 1);
+                setBlockAt(x, garbage.y + 1, blockAt(x, garbage.y));
+                setBlockAt(x, garbage.y, below);
+            }
+            garbage.y++;
+            garbage.falling = false;
+        }
+        if (!garbage.falling && canGarbageFall(garbage)) {
+            garbage.falling = true;
+            garbage.count = 0;
+        }
+    }
+
+    if (++gameState.garbageTimer >= GARBAGE_INTERVAL && spawnGarbage()) {
+        gameState.garbageTimer = 0;
+    }
 }
 
 // キャンバス上の座標（px）をマスの座標に変換
@@ -226,7 +336,7 @@ function trySwap() {
     const r = blockAt(x + 1, y);
     if (!l.isSwappable() || !r.isSwappable()) return;
     // 真上から落ちてくるブロックがあれば入れ替えない
-    if (blockAt(x, y - 1).state === FALLING || blockAt(x + 1, y - 1).state === FALLING) return;
+    if (blockAt(x, y - 1).isFalling() || blockAt(x + 1, y - 1).isFalling()) return;
     l.setState(SWAPPING_L);
     r.setState(SWAPPING_R);
 }
@@ -235,11 +345,13 @@ function trySwap() {
 function raiseRow() {
     let gameOver = false;
     for (let x = 0; x < WIDTH; ++x) {
-        gameOver ||= !blockAt(x, 1).isEmpty();
+        // 上から2段目まで埋まっている（最上段にはお邪魔ブロックだけが乗りうる）
+        gameOver ||= !blockAt(x, 0).isEmpty() || !blockAt(x, 1).isEmpty();
 
         // 最上段のブロックを予告ブロックとして再利用し、列を1段ずつ上にずらす
         let b = blockAt(x, 0);
         b.type = gameState.next[x];
+        b.garbage = null;
         b.setState(NEUTRAL);
         for (let y = HEIGHT - 1; y >= 0; --y) {
             const n = blockAt(x, y);
@@ -248,6 +360,7 @@ function raiseRow() {
         }
     }
     genNext();
+    for (const garbage of gameState.garbages) garbage.y--;
     if (gameState.y > 1) gameState.y--;
     if (gameState.touched) {
         gameState.touched.y--;
@@ -265,6 +378,10 @@ export function updateGame(input) {
         gameState.raiseTime = Math.max(gameState.raiseTime - extinctCount, MIN_RAISE_TIME);
         stopRaise = true;
     }
+
+    updateGarbages();
+    // お邪魔ブロックの落下中・消去中はせり上げない
+    stopRaise ||= gameState.garbages.some(garbage => garbage.falling || garbage.clearing);
 
     const swipe = applyPointerActions(input.actions);
     moveCursor(input);

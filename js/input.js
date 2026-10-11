@@ -22,7 +22,7 @@ export function pollInput() {
     return input;
 }
 
-// 入力処理の初期化。onConfirmCallback は入れ替え・加速キーが押されたときに呼ばれる
+// 入力処理の初期化。onConfirmCallback は入れ替え・加速・決定キーが押されたときに呼ばれる
 export function initInput(targetCanvas, onConfirmCallback) {
     canvas = targetCanvas;
     onConfirm = onConfirmCallback;
@@ -58,7 +58,7 @@ function onKeyDown(ev) {
         keys.swap = true;
     } else if (ev.code === 'KeyX') {
         keys.raise = true;
-    } else {
+    } else if (ev.code !== 'Enter' && ev.code !== 'Space') {
         return;
     }
     onConfirm?.();

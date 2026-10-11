@@ -27,6 +27,37 @@ body {
     border: 16px solid rgba(0, 0, 0, 0);
     text-align: center;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
+}
+
+/* ゲームオーバー画面（font-size はブロックサイズに合わせて layout.js で設定） */
+.game-over-score {
+    font-size: 0.8em;
+}
+
+.restart-button {
+    margin-top: 0.4em;
+    padding: 0.2em 1em;
+    font-family: inherit;
+    font-size: 0.8em;
+    color: white;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid white;
+    border-radius: 0.3em;
+    cursor: pointer;
+}
+
+.restart-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.game-over-hint {
+    font-size: 0.4em;
+    color: rgba(255, 255, 255, 0.7);
 }
 
 /* タイトル画面 */

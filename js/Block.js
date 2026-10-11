@@ -1,8 +1,9 @@
 import {
     NEUTRAL, EXTINCT, VANISH, FALLING, MOVEDOWN,
-    SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR,
-    EMPTY, BLOCK_SIZE,
-    SWAP_FRAME, FALL_FRAME, EXTINCT_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, LEVITATE_FRAME
+    SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR, HANG,
+    EMPTY, GARBAGE, BLOCK_SIZE,
+    SWAP_FRAME, FALL_FRAME, EXTINCT_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, LEVITATE_FRAME,
+    GARBAGE_HANG_FRAME
 } from './constants.js';
 
 // ブロッククラス
@@ -13,6 +14,7 @@ export class Block {
         this.state = NEUTRAL;
         this.vanishIndex = -1;
         this.vanishNum = 0;
+        this.garbage = null; // 所属するお邪魔ブロック（type が GARBAGE のとき）
     }
 
     setState(st) {
@@ -23,6 +25,16 @@ export class Block {
     // 空きマスか
     isEmpty() {
         return this.type === EMPTY;
+    }
+
+    // 色のついた通常ブロックか
+    isColor() {
+        return this.type >= 0;
+    }
+
+    // 落下中か（お邪魔ブロックはかたまり単位で落下する）
+    isFalling() {
+        return this.state === FALLING || (this.garbage?.falling ?? false);
     }
 
     // 空きブロックと見なせるか
@@ -39,12 +51,12 @@ export class Block {
 
     // 入れ替え可能ブロックか
     isSwappable() {
-        return this.state === NEUTRAL;
+        return this.state === NEUTRAL && this.type !== GARBAGE;
     }
 
     // 連結可能ブロックか
     isConnectable() {
-        return !this.isEmpty() && (this.state === NEUTRAL || (this.state === EXTINCT && this.count === 0));
+        return this.isColor() && (this.state === NEUTRAL || (this.state === EXTINCT && this.count === 0));
     }
 
     // 表示上のXオフセット量
@@ -82,6 +94,9 @@ export class Block {
                 break;
             case LEVITATE:
                 if (this.count === LEVITATE_FRAME) this.setState(CHECK_FLOOR);
+                break;
+            case HANG:
+                if (this.count === GARBAGE_HANG_FRAME) this.setState(CHECK_FLOOR);
                 break;
         }
         this.count++;

@@ -19,7 +19,6 @@ export function doLayout() {
     Object.assign(gameOverElement.style, {
         width: `${canvasWidth}px`,
         height: `${canvasHeight}px`,
-        lineHeight: `${canvasHeight}px`,
         fontSize: `${BLOCK_SIZE}px`
     });
 

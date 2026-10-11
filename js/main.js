@@ -12,17 +12,19 @@ let isGameOver = false;
 let lastTime = 0;
 let pendingTime = 0;
 
+// ゲームオーバー中ならリスタート
+function restart() {
+    if (isGameOver) startGame();
+}
+
 // 描画・入力の初期化
 function setup() {
-    const canvas = initRenderer();
+    const canvas = initRenderer(restart);
 
     doLayout();
     window.addEventListener('resize', doLayout);
 
-    // ゲームオーバー中に入れ替え・加速キーでリスタート
-    initInput(canvas, () => {
-        if (isGameOver) startGame();
-    });
+    initInput(canvas, restart);
 }
 
 // ゲームを開始
@@ -50,7 +52,7 @@ function tick(now) {
     render(gameState);
 
     if (isGameOver) {
-        showGameOver();
+        showGameOver(gameState.counter * FRAME_MS / 1000);
     } else {
         requestAnimationFrame(tick);
     }
