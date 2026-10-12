@@ -1,5 +1,5 @@
 import { PANEL_STYLES } from './constants.js';
-import { panelImageUrl } from './panel-art.js';
+import { paintPlayIllustration } from './panel-art.js';
 import { SETTING_OPTIONS, loadSettings, saveSettings } from './settings.js';
 import { initSound } from './sound.js';
 
@@ -14,10 +14,6 @@ export function showTitle({ onSolo, onOnline }) {
     started = false;
     const settings = loadSettings();
 
-    // 最後の色は「むずかしい」だけで出るので、タイトルには並べない
-    const blocks = PANEL_STYLES.slice(0, -1).map((_, i) =>
-        `<img class="title-block" src="${panelImageUrl(i, 48)}" alt="" style="--i: ${i}">`
-    ).join('');
     // タイトルの文字は、1文字ずつパネルの色で塗る
     const letters = [...'PANEL DE PON'].map((ch, i) => ch === ' '
         ? '<span class="title-space"></span>'
@@ -42,7 +38,10 @@ export function showTitle({ onSolo, onOnline }) {
     titleElement.innerHTML = `
         <div class="title-content">
             <h1 class="title-text" aria-label="PANEL DE PON">${letters}</h1>
-            <div class="title-blocks">${blocks}</div>
+            <figure class="title-illustration">
+                <canvas aria-label="パネルを指で横に動かし、同じ色を3つそろえて消すところ"></canvas>
+                <figcaption>横に動かして、同じ色を3つそろえよう</figcaption>
+            </figure>
             <div class="settings">${settingGroups}</div>
             <div class="start-buttons">
                 <button type="button" class="start-button" data-mode="solo">ひとりで遊ぶ</button>
@@ -56,6 +55,7 @@ export function showTitle({ onSolo, onOnline }) {
         </div>
     `;
     document.body.appendChild(titleElement);
+    paintPlayIllustration(titleElement.querySelector('.title-illustration canvas'));
 
     for (const button of titleElement.querySelectorAll('.start-button')) {
         button.addEventListener('click', () => start(button.dataset.mode));

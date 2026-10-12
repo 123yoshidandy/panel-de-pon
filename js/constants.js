@@ -47,15 +47,16 @@ export const FRAME_MS = 16; // 1フレームの長さ（ミリ秒）
 
 // ===== 見た目 =====
 // パネルの色と記号（最後の色は難易度「むずかしい」でだけ使う）
+// base: 板の色、light: 板の明るいところと記号の色、deep: 板の暗いところと記号の縁
 export const PANEL_STYLES = [
-    { name: 'strawberry', base: '#ff6f91', light: '#ffb3c6', deep: '#d94070', mark: 'heart' },
-    { name: 'melon', base: '#52d68a', light: '#a8f0c4', deep: '#26a862', mark: 'circle' },
-    { name: 'grape', base: '#b77cf2', light: '#dcc0fb', deep: '#8a4fd0', mark: 'diamond' },
-    { name: 'lemon', base: '#ffc93c', light: '#ffe6a0', deep: '#e09c00', mark: 'star' },
-    { name: 'soda', base: '#3ccfe8', light: '#a6ecf7', deep: '#139fbd', mark: 'triangle' },
-    { name: 'blueberry', base: '#5b7cf5', light: '#b2c2fb', deep: '#3450cf', mark: 'drop' }
+    { name: 'red', base: '#e8304a', light: '#ffb0bc', deep: '#9c1426', mark: 'heart' },
+    { name: 'green', base: '#2fb84a', light: '#b4f2bf', deep: '#16772a', mark: 'circle' },
+    { name: 'purple', base: '#9a46d8', light: '#e2c2fb', deep: '#5e1f92', mark: 'diamond' },
+    { name: 'yellow', base: '#f2be12', light: '#fff2ac', deep: '#a87a00', mark: 'star' },
+    { name: 'cyan', base: '#1db4dc', light: '#b2eefc', deep: '#0b6f8c', mark: 'triangle' },
+    { name: 'blue', base: '#3456d6', light: '#bcc9fb', deep: '#182f8a', mark: 'triangleDown' }
 ];
-export const GARBAGE_STYLE = { base: '#a99ad6', light: '#d9d0f5', deep: '#7563b3' };
+export const GARBAGE_STYLE = { base: '#8f88b8', light: '#d4cfee', deep: '#4f4878' };
 export const CHAIN_COLOR = '#ff5c8a';
 export const COMBO_COLOR = '#3fa9f5';
 
