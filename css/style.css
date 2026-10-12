@@ -2,10 +2,10 @@
     --font: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif;
     --ink: #5a4a78;
     --ink-soft: #8d7fae;
-    --accent: #3b2d9a; /* 主なボタン・選択中の設定 */
-    --accent-deep: #1f165c;
-    --accent2: #7a5ce0; /* オンライン対戦などのボタン */
-    --accent2-deep: #5a3fc0;
+    --accent: #c8102e; /* 主なボタン・選択中の設定 */
+    --accent-deep: #7d0a1d;
+    --accent2: #8c1239; /* オンライン対戦などのボタン */
+    --accent2-deep: #520a21;
     --card: rgba(255, 255, 255, 0.96);
     --line: rgba(255, 255, 255, 0.9);
 }
@@ -246,7 +246,7 @@ button {
     font-weight: 800;
     letter-spacing: 0.06em;
     line-height: 1.1;
-    color: #2a1f6e;
+    color: var(--accent);
 }
 
 .title-illustration {
