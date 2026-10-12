@@ -179,6 +179,23 @@ describe('ゲームの進行', () => {
         expect(getSnapshot().next).not.toBeUndefined();
     });
 
+    it('長押しのせり上げは、難易度によらず同じ速さ', () => {
+        const framesPerRow = (difficulty) => {
+            resetGame({ ...PRACTICE, difficulty });
+            loadRows(['012340']);
+            const before = getSnapshot().next;
+            let frames = 0;
+            while (bottomRows(2)[1] !== before && frames < 1000) {
+                updateGame({ ...NO_INPUT, raise: true });
+                frames++;
+            }
+            return frames;
+        };
+        expect(framesPerRow('practice')).toBe(18);
+        expect(framesPerRow('normal')).toBe(18);
+        expect(framesPerRow('hard')).toBe(18);
+    });
+
     it('上まで積み上がった状態でせり上がるとゲームオーバー', () => {
         const rows = Array.from({ length: HEIGHT - 1 }, (_, i) => (i % 2 ? '120120' : '012012'));
         start(rows);

@@ -6,7 +6,6 @@ export const SETTING_OPTIONS = [
         // raiseTime: せり上がりの速さ（1段にかかるフレーム数）、gaugeRate: お邪魔ゲージの溜まる速さ、colorCount: ブロックの色数
         choices: [
             { value: 'practice', label: 'れんしゅう', raiseTime: 900, gaugeRate: 0, colorCount: 5 }, // お邪魔ブロックが降らない
-            { value: 'easy', label: 'やさしい', raiseTime: 900, gaugeRate: 2 / 3, colorCount: 5 },
             { value: 'normal', label: 'ふつう', raiseTime: 600, gaugeRate: 1, colorCount: 5 },
             { value: 'hard', label: 'むずかしい', raiseTime: 360, gaugeRate: 1.5, colorCount: 6 }
         ]
@@ -54,7 +53,7 @@ export function loadSettings() {
     }
     // 旧設定（せり上がり速度・お邪魔ゲージの速さ・お邪魔ブロックの有無）からの移行
     if (!saved.difficulty && (saved.raiseSpeed || saved.gaugeSpeed || saved.garbage)) {
-        const byRaiseSpeed = { slow: 'easy', normal: 'normal', fast: 'hard' };
+        const byRaiseSpeed = { slow: 'normal', normal: 'normal', fast: 'hard' };
         saved.difficulty = saved.gaugeSpeed === 'off' || saved.garbage === 'off'
             ? 'practice'
             : byRaiseSpeed[saved.raiseSpeed] ?? 'normal';

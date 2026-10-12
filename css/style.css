@@ -293,6 +293,12 @@ button {
     border: none;
 }
 
+.setting-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+}
+
 .setting legend {
     width: 100%;
     margin-bottom: 6px;

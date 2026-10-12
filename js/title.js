@@ -20,7 +20,7 @@ export function showTitle({ onSolo, onOnline }) {
         : `<span style="color: ${PANEL_STYLES[i % (PANEL_STYLES.length - 1)].symbol}">${ch}</span>`
     ).join('');
 
-    const settingGroups = SETTING_OPTIONS.map(option => `
+    const fieldset = (option) => `
         <fieldset class="setting">
             <legend>${option.label}</legend>
             ${option.choices.map(choice => `
@@ -31,7 +31,10 @@ export function showTitle({ onSolo, onOnline }) {
                 </label>
             `).join('')}
         </fieldset>
-    `).join('');
+    `;
+    // 難易度は1行、効果音と BGM は横に並べる
+    const [difficulty, ...toggles] = SETTING_OPTIONS;
+    const settingGroups = `${fieldset(difficulty)}<div class="setting-row">${toggles.map(fieldset).join('')}</div>`;
 
     titleElement = document.createElement('div');
     titleElement.id = 'title-screen';

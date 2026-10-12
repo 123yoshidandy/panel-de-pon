@@ -11,7 +11,7 @@
 import {
     WIDTH, HEIGHT, BLOCK_SIZE,
     SWAP_FRAMES, HOVER_FRAMES, FALL_STEP_FRAMES, FLASH_FRAMES, POP_START_FRAMES, POP_INTERVAL_FRAMES,
-    LAND_BOUNCE_FRAMES, MIN_RAISE_TIME, RAISE_BOOST,
+    LAND_BOUNCE_FRAMES, MIN_RAISE_TIME, MANUAL_RAISE_FRAMES,
     GARBAGE_GAUGE_MAX, GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH,
     GARBAGE_CLEAR_FRAMES, THAW_FRAMES, POPUP_FRAMES, MIN_COMBO, VERSUS_GARBAGE_DELAY,
     FLATTEN_WAIT_FRAMES, FLATTEN_SLIDE_FRAMES, FLATTEN_DROP_FRAMES, SHAKE_FRAMES
@@ -773,7 +773,8 @@ export function updateGame(input) {
     const busy = cleared > 0 || gameState.clears.length > 0
         || gameState.garbages.some(garbage => garbage.falling || garbage.clearing)
         || gameState.grid.some(row => row.some(item => isPanel(item) && item.phase === THAW));
-    if (!busy) gameState.raiseCount += input.raise ? RAISE_BOOST : 1;
+    // 長押しのせり上げは、難易度によらず1段を MANUAL_RAISE_FRAMES で上げる
+    if (!busy) gameState.raiseCount += input.raise ? Math.max(1, gameState.raiseTime / MANUAL_RAISE_FRAMES) : 1;
     if (gameState.raiseCount >= gameState.raiseTime) {
         gameState.raiseCount = 0;
         if (raiseRow()) return true;

@@ -16,7 +16,7 @@ export const LAND_BOUNCE_FRAMES = 10; // 着地したパネルが弾む時間（
 
 // ===== せり上がり =====
 export const MIN_RAISE_TIME = 40; // 1段せり上がるまでのフレーム数（下限）
-export const RAISE_BOOST = 20; // 長押しで加速している間、1フレームで進むせり上がり量
+export const MANUAL_RAISE_FRAMES = 18; // 長押しでせり上げるとき、1段にかかるフレーム数（難易度によらず同じ）
 
 // ===== お邪魔ブロック =====
 export const GARBAGE_GAUGE_MAX = 720; // ゲージが満タンになる（お邪魔ブロックが降る）までのフレーム数
