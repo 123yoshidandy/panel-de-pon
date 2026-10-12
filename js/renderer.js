@@ -274,6 +274,16 @@ function renderIncoming(incoming) {
     ).join('');
 }
 
+// フィールドとゲージを出すか（タイトルや部屋の画面の後ろに、前のゲームの盤面を残さないように）
+export function setFieldVisible(visible) {
+    canvas.style.visibility = visible ? 'visible' : 'hidden';
+    if (!visible) {
+        gaugeElement.style.visibility = 'hidden';
+        hideGameOver();
+        hideVersusResult();
+    }
+}
+
 // 対戦用の表示（相手のフィールド・予告）を出すか
 export function setVersusVisible(visible) {
     for (const element of [opponentCanvas, opponentLabel, incomingElement]) {

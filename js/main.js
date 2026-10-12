@@ -1,6 +1,6 @@
 import {
     initRenderer, render, showGameOver, hideGameOver,
-    setVersusVisible, renderOpponent, showVersusResult, hideVersusResult
+    setVersusVisible, setFieldVisible, renderOpponent, showVersusResult, hideVersusResult
 } from './renderer.js';
 import { initInput, pollInput } from './input.js';
 import { doLayout } from './layout.js';
@@ -57,6 +57,10 @@ function applySoundSettings() {
 
 function openTitle() {
     scene = 'title';
+    if (initialized) {
+        setFieldVisible(false);
+        setVersusVisible(false);
+    }
     showTitle({ onSolo: startSolo, onOnline: openOnline });
 }
 
@@ -124,6 +128,9 @@ function startGame(selected) {
     pollInput(); // 開始前の入力は捨てる
     hideGameOver();
     scene = 'playing';
+    // 新しい盤面を描いてから見せる（前の盤面や空のフィールドが一瞬見えないように）
+    render(gameState);
+    setFieldVisible(true);
     startLoop();
 }
 
@@ -276,6 +283,9 @@ function startVersus(id, seed) {
     countdown = COUNTDOWN_FRAMES;
     opponentSnapshot = null;
     resultTitle = null;
+    render(gameState, { countdown: Math.ceil(countdown / 60) });
+    renderOpponent(null, opponentInfo());
+    setFieldVisible(true);
     startLoop();
 }
 
@@ -358,7 +368,7 @@ function backToRoom() {
 }
 
 function enterRoom() {
-    hideVersusResult();
+    setFieldVisible(false);
     setVersusVisible(false);
     stopBgm();
     scene = 'online';
