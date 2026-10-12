@@ -1,19 +1,21 @@
 import {
-    WIDTH, HEIGHT, BLOCK_SIZE, GARBAGE, FALL_FRAME,
-    COLORS, LIGHT_COLORS, DARK_COLORS, RELIEF,
-    GARBAGE_COLOR, GARBAGE_LIGHT_COLOR, GARBAGE_DARK_COLOR, CHAIN_COLOR, COMBO_COLOR,
-    GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING, SHAKE_FRAME
+    WIDTH, HEIGHT, BLOCK_SIZE, LAND_BOUNCE_FRAMES, PANEL_STYLES, CHAIN_COLOR, COMBO_COLOR,
+    GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING, SHAKE_FRAMES
 } from './constants.js';
-import { getRaiseOffset, flattenMovePosition } from './game.js';
+import {
+    getRaiseOffset, flattenMovePosition, panelOffset, garbageOffset, clearProgress, CLEAR
+} from './game.js';
 import { isGarbageEnabled } from './settings.js';
+import { panelSprite, drawGarbage, pixelRatio } from './panel-art.js';
 
-// キャンバスとコンテキスト
+const POP_EFFECT_FRAMES = 14; // 弾けたあとに輪と星が広がる時間
+const FONT = "'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif";
+
 export let canvas;
 export let gameOverElement;
 export let gaugeElement;
 let gaugeFillElement;
 let g;
-
 let scoreElement;
 let maxChainElement;
 
@@ -42,13 +44,15 @@ export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom
     versusResultElement = document.createElement('div');
     versusResultElement.classList.add('message');
     versusResultElement.innerHTML = `
-        <div class="versus-result-title"></div>
-        <div class="game-over-score versus-result-score"></div>
-        <div class="game-over-buttons">
-            <button type="button" class="game-over-button" data-action="rematch">もう1回</button>
-            <button type="button" class="game-over-button" data-action="room">部屋に戻る</button>
+        <div class="message-card">
+            <div class="versus-result-title"></div>
+            <div class="message-score versus-result-score"></div>
+            <div class="message-buttons">
+                <button type="button" class="message-button primary" data-action="rematch">もう1回</button>
+                <button type="button" class="message-button" data-action="room">部屋に戻る</button>
+            </div>
+            <div class="versus-result-note"></div>
         </div>
-        <div class="versus-result-note"></div>
     `;
     versusResultElement.querySelector('[data-action="rematch"]').addEventListener('click', () => onRematch());
     versusResultElement.querySelector('[data-action="room"]').addEventListener('click', () => onBackToRoom());
@@ -66,20 +70,22 @@ export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom
     gameOverElement = document.createElement('div');
     gameOverElement.classList.add('message');
     gameOverElement.innerHTML = `
-        <div class="game-over-title">GAME OVER</div>
-        <div class="game-over-score">TIME <span class="game-over-time"></span> s</div>
-        <div class="game-over-score">MAX CHAIN <span class="game-over-chain"></span></div>
-        <div class="game-over-buttons">
-            <button type="button" class="game-over-button" data-action="restart">RESTART</button>
-            <button type="button" class="game-over-button" data-action="title">タイトルへ</button>
+        <div class="message-card">
+            <div class="game-over-title">GAME OVER</div>
+            <div class="message-score">がんばった時間 <span class="game-over-time"></span> 秒</div>
+            <div class="message-score">最大連鎖 <span class="game-over-chain"></span></div>
+            <div class="message-buttons">
+                <button type="button" class="message-button primary" data-action="restart">もう一度</button>
+                <button type="button" class="message-button" data-action="title">タイトルへ</button>
+            </div>
         </div>
     `;
     scoreElement = gameOverElement.querySelector('.game-over-time');
     maxChainElement = gameOverElement.querySelector('.game-over-chain');
     const actions = { restart: onRestart, title: onBackToTitle };
-    for (const button of gameOverElement.querySelectorAll('.game-over-button')) {
+    for (const button of gameOverElement.querySelectorAll('.message-button')) {
         button.addEventListener('click', () => {
-            button.blur(); // フォーカスが残ってキー入力を奪わないように
+            button.blur();
             actions[button.dataset.action]();
         });
     }
@@ -88,126 +94,165 @@ export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom
     return canvas;
 }
 
-// 指定座標を中心に文字列を描画
-function drawText(str, x, y) {
-    const tm = g.measureText(str);
-    g.fillText(str, x - 0.5 * tm.width, y + 0.5 * tm.actualBoundingBoxAscent);
+// ===== フィールド =====
+
+// 盤面の地（市松模様のうすいマス目）
+function drawBackdrop(raiseY) {
+    const size = BLOCK_SIZE;
+    for (let y = -1; y <= HEIGHT; ++y) {
+        for (let x = 0; x < WIDTH; ++x) {
+            if ((x + y) % 2) continue;
+            g.fillStyle = 'rgba(255, 255, 255, 0.18)';
+            g.fillRect(x * size, y * size - raiseY, size, size);
+        }
+    }
 }
 
-// (px, py) を左上としてブロックを描画
-function drawBlock(type, px, py) {
-    const edge = BLOCK_SIZE / 16;
-    g.translate(px, py);
-    g.fillStyle = COLORS[type];
-    g.fillRect(0, 0, BLOCK_SIZE, BLOCK_SIZE);
-    g.fillStyle = LIGHT_COLORS[type];
-    drawText(RELIEF[type], 0.5 * BLOCK_SIZE, 0.5 * BLOCK_SIZE);
-    g.fillRect(0, 0, BLOCK_SIZE, edge);
-    g.fillRect(0, 0, edge, BLOCK_SIZE);
-    g.fillStyle = DARK_COLORS[type];
-    g.fillRect(0, BLOCK_SIZE - edge, BLOCK_SIZE, edge);
-    g.fillRect(BLOCK_SIZE - edge, 0, edge, BLOCK_SIZE);
-    g.setTransform(1, 0, 0, 1, 0, 0);
+// パネル1枚を描く。bounce（着地の弾み）があれば下を支点につぶす
+function drawPanel(color, px, py, { variant = 'normal', bounce = 0, scale = 1, alpha = 1 } = {}) {
+    const size = BLOCK_SIZE;
+    const sprite = panelSprite(color, size, variant);
+    let sx = scale;
+    let sy = scale;
+    if (bounce > 0) {
+        const k = Math.sin(Math.PI * bounce / LAND_BOUNCE_FRAMES);
+        sx *= 1 + 0.08 * k;
+        sy *= 1 - 0.12 * k;
+    }
+    g.save();
+    g.globalAlpha = alpha;
+    g.translate(px + size / 2, py + size);
+    g.scale(sx, sy);
+    g.drawImage(sprite, -size / 2, -size, size, size);
+    g.restore();
 }
 
-// お邪魔ブロックを描画（消去中は点滅）
-function drawGarbage(garbage, raiseY) {
-    const offsetY = garbage.falling ? garbage.count * BLOCK_SIZE / FALL_FRAME : 0;
-    const flash = garbage.clearing && (garbage.count & 4) !== 0;
-    drawGarbageRect(g, BLOCK_SIZE, garbage.x * BLOCK_SIZE, garbage.y * BLOCK_SIZE + offsetY - raiseY,
-        garbage.width, garbage.height, flash);
+// 弾けたパネルの跡に、広がる輪と星を描く（frame は弾けてからのフレーム数）
+function drawPop(color, px, py, frame) {
+    const size = BLOCK_SIZE;
+    const k = frame / POP_EFFECT_FRAMES;
+    const cx = px + size / 2;
+    const cy = py + size / 2;
+    g.save();
+    g.globalAlpha = 1 - k;
+    g.strokeStyle = PANEL_STYLES[color].light;
+    g.lineWidth = size * 0.1 * (1 - k) + 1;
+    g.beginPath();
+    g.arc(cx, cy, size * (0.25 + 0.45 * k), 0, Math.PI * 2);
+    g.stroke();
+    g.fillStyle = '#fff';
+    for (let i = 0; i < 4; ++i) {
+        const angle = Math.PI / 4 + i * Math.PI / 2;
+        const d = size * (0.2 + 0.6 * k);
+        const r = size * 0.09 * (1 - k);
+        g.beginPath();
+        g.arc(cx + Math.cos(angle) * d, cy + Math.sin(angle) * d, r, 0, Math.PI * 2);
+        g.fill();
+    }
+    g.restore();
 }
 
-// ctx に、(px, py) を左上として幅 width・高さ height マスのお邪魔ブロックを描く（相手のフィールドの描画でも使う）
-export function drawGarbageRect(ctx, size, px, py, width, height, flash = false) {
-    const edge = size / 16;
-    const w = width * size;
-    const h = height * size;
-    ctx.translate(px, py);
-    ctx.fillStyle = flash ? GARBAGE_LIGHT_COLOR : GARBAGE_COLOR;
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = GARBAGE_LIGHT_COLOR;
-    ctx.fillRect(0, 0, w, edge);
-    ctx.fillRect(0, 0, edge, h);
-    ctx.fillStyle = GARBAGE_DARK_COLOR;
-    ctx.fillRect(0, h - edge, w, edge);
-    ctx.fillRect(w - edge, 0, edge, h);
-    // 中央の模様
-    ctx.strokeStyle = GARBAGE_DARK_COLOR;
-    ctx.lineWidth = edge;
-    ctx.strokeRect(size / 4, size / 4, w - size / 2, h - size / 2);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-}
-
-// 連鎖数（x2）・同時消し数（4）を描画（時間とともに少しずつ上に浮かぶ）
+// 連鎖数（×2）・同時消し数（4）のバッジ。時間とともに少しずつ浮かぶ
 function drawPopup(popup, raiseY) {
-    const rise = popup.count * BLOCK_SIZE / 60;
-    const px = popup.x * BLOCK_SIZE;
-    const py = popup.y * BLOCK_SIZE - raiseY - rise;
+    const size = BLOCK_SIZE;
+    const rise = popup.t * size / 60;
+    const w = size * 1.1;
+    const h = size * 0.75;
+    const px = popup.x * size + size / 2 - w / 2;
+    const py = popup.y * size - raiseY - rise + (size - h) / 2;
     const isChain = popup.kind === 'chain';
+    g.save();
+    g.globalAlpha = Math.min(1, (60 - popup.t) / 12);
     g.fillStyle = isChain ? CHAIN_COLOR : COMBO_COLOR;
-    g.fillRect(px, py, BLOCK_SIZE, BLOCK_SIZE * 0.8);
-    g.strokeStyle = 'white';
-    g.lineWidth = BLOCK_SIZE / 16;
-    g.strokeRect(px, py, BLOCK_SIZE, BLOCK_SIZE * 0.8);
-    g.fillStyle = 'white';
-    g.font = `${BLOCK_SIZE * 0.55}px Anton, sans-serif`;
-    drawText(isChain ? `x${popup.value}` : `${popup.value}`, px + BLOCK_SIZE / 2, py + BLOCK_SIZE * 0.4);
+    g.strokeStyle = '#fff';
+    g.lineWidth = size / 14;
+    g.beginPath();
+    g.roundRect(px, py, w, h, h / 2);
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#fff';
+    g.font = `800 ${size * 0.5}px ${FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(isChain ? `×${popup.value}` : `${popup.value}`, px + w / 2, py + h / 2 + size * 0.02);
+    g.restore();
 }
 
 // 描画処理。countdown が 1 以上なら、対戦開始までの秒数を大きく表示する
 export function render(state, { countdown = 0 } = {}) {
+    const ratio = pixelRatio();
+    const size = BLOCK_SIZE;
+    g.setTransform(ratio, 0, 0, ratio, 0, 0);
     g.clearRect(0, 0, canvas.width, canvas.height);
-    g.font = `${BLOCK_SIZE * 0.8}px メイリオ`;
     const raiseY = getRaiseOffset(state);
+    drawBackdrop(raiseY);
 
-    // 平滑化で移動中のブロックは、着地するまで移動先のマスには描かない
+    // 平滑化で移っているパネルは、着くまで移動先のマスには描かない
     const flying = [];
     const hidden = new Set();
     for (const move of state.flattenMoves) {
         const pos = flattenMovePosition(move, state.flattenFrame);
         if (!pos) continue;
-        flying.push({ type: move.type, ...pos });
-        hidden.add(move.toX + move.toY * WIDTH);
+        flying.push({ color: move.color, ...pos });
+        hidden.add(move.toY * WIDTH + move.toX);
     }
 
-    for (let x = 0; x < WIDTH; ++x) {
-        for (let y = 0; y < HEIGHT; ++y) {
-            const b = state.blocks[x + y * WIDTH];
-            if (b.type !== GARBAGE && b.isVisible() && !hidden.has(x + y * WIDTH)) {
-                drawBlock(b.type, x * BLOCK_SIZE + b.offsetX(), y * BLOCK_SIZE + b.offsetY() - raiseY);
+    for (let y = 0; y < HEIGHT; ++y) {
+        for (let x = 0; x < WIDTH; ++x) {
+            const item = state.grid[y][x];
+            if (item?.kind !== 'panel' || hidden.has(y * WIDTH + x)) continue;
+            const { dx, dy } = panelOffset(item);
+            const px = (x + dx) * size;
+            const py = (y + dy) * size - raiseY;
+            if (item.phase === CLEAR) {
+                const { flash, popped, t } = clearProgress(item);
+                if (popped) {
+                    if (t - item.popAt < POP_EFFECT_FRAMES) drawPop(item.color, px, py, t - item.popAt);
+                } else if (flash) {
+                    drawPanel(item.color, px, py, { variant: (t >> 2) & 1 ? 'flash' : 'normal' });
+                } else {
+                    drawPanel(item.color, px, py, { variant: 'faded', scale: 0.92 });
+                }
+                continue;
             }
+            drawPanel(item.color, px, py, { bounce: item.bounce });
         }
-        // 予告ブロック
-        g.fillStyle = DARK_COLORS[state.next[x]];
-        g.fillRect(x * BLOCK_SIZE, HEIGHT * BLOCK_SIZE - raiseY, BLOCK_SIZE, BLOCK_SIZE);
+    }
+
+    // 次にせり上がってくる段（暗く）
+    for (let x = 0; x < WIDTH; ++x) {
+        drawPanel(state.next[x], x * size, HEIGHT * size - raiseY, { alpha: 0.4 });
     }
 
     for (const garbage of state.garbages) {
-        drawGarbage(garbage, raiseY);
+        const flash = garbage.clearing && (garbage.t & 4) !== 0;
+        drawGarbage(g, size, garbage.x * size, (garbage.y + garbageOffset(garbage)) * size - raiseY,
+            garbage.width, garbage.height, flash);
     }
 
     for (const f of flying) {
-        drawBlock(f.type, f.x * BLOCK_SIZE, f.y * BLOCK_SIZE - raiseY);
+        drawPanel(f.color, f.x * size, f.y * size - raiseY);
     }
 
     // 平滑化でフィールドを左右に揺らす（だんだん小さくなる）
     const shake = state.shakeFrame > 0
-        ? Math.sin(state.shakeFrame * Math.PI / 2) * BLOCK_SIZE / 8 * state.shakeFrame / SHAKE_FRAME
+        ? Math.sin(state.shakeFrame * Math.PI / 2) * size / 8 * state.shakeFrame / SHAKE_FRAMES
         : 0;
     canvas.style.transform = shake ? `translateX(${shake}px)` : '';
 
-
-    for (const popup of state.popups) {
-        drawPopup(popup, raiseY);
-    }
+    for (const popup of state.popups) drawPopup(popup, raiseY);
 
     if (countdown > 0) {
-        g.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        g.fillRect(0, 0, canvas.width, canvas.height);
-        g.fillStyle = 'white';
-        g.font = `${BLOCK_SIZE * 3}px Anton, sans-serif`;
-        drawText(String(countdown), canvas.width / 2, canvas.height / 2);
+        g.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        g.fillRect(0, 0, WIDTH * size, HEIGHT * size);
+        g.font = `800 ${size * 3}px ${FONT}`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.lineWidth = size / 4;
+        g.strokeStyle = '#fff';
+        g.strokeText(String(countdown), WIDTH * size / 2, HEIGHT * size / 2);
+        g.fillStyle = CHAIN_COLOR;
+        g.fillText(String(countdown), WIDTH * size / 2, HEIGHT * size / 2);
     }
 
     gaugeElement.style.visibility = state.mode === 'solo' && isGarbageEnabled(state.settings) ? 'visible' : 'hidden';
@@ -236,37 +281,40 @@ export function setVersusVisible(visible) {
 }
 
 // 相手のフィールドを小さく描く。snapshot は相手から届いたフィールドの様子（game.js の getSnapshot）
-// info: { name, connected, wins }
+// info: { name, connected }
 export function renderOpponent(snapshot, info) {
-    const size = opponentCanvas.width / WIDTH;
-    og.clearRect(0, 0, opponentCanvas.width, opponentCanvas.height);
+    const ratio = pixelRatio();
+    const size = opponentCanvas.width / ratio / WIDTH;
+    og.setTransform(ratio, 0, 0, ratio, 0, 0);
+    og.clearRect(0, 0, WIDTH * size, HEIGHT * size);
     if (snapshot) {
         const raiseY = Math.floor(size * snapshot.raise);
         for (let i = 0; i < WIDTH * HEIGHT; ++i) {
             const c = snapshot.cells[i];
             if (c === '.') continue;
-            drawMiniBlock(Number(c), (i % WIDTH) * size, Math.floor(i / WIDTH) * size - raiseY, size);
+            drawMiniPanel(Number(c), (i % WIDTH) * size, Math.floor(i / WIDTH) * size - raiseY, size);
         }
         for (const [x, y, width, height, clearing] of snapshot.garbages) {
-            drawGarbageRect(og, size, x * size, y * size - raiseY, width, height, Boolean(clearing));
+            drawGarbage(og, size, x * size, y * size - raiseY, width, height, Boolean(clearing));
         }
+        og.globalAlpha = 0.4;
         for (let x = 0; x < WIDTH; ++x) {
-            og.fillStyle = DARK_COLORS[Number(snapshot.next[x])];
-            og.fillRect(x * size, HEIGHT * size - raiseY, size, size);
+            drawMiniPanel(Number(snapshot.next[x]), x * size, HEIGHT * size - raiseY, size);
         }
+        og.globalAlpha = 1;
     }
-    const status = info.connected ? '' : '（切断中）';
-    opponentLabel.textContent = `${info.name}${status}`;
+    opponentLabel.textContent = `${info.name}${info.connected ? '' : '（切断中）'}`;
 }
 
-function drawMiniBlock(type, px, py, size) {
-    const edge = Math.max(1, size / 8);
-    og.fillStyle = COLORS[type];
-    og.fillRect(px, py, size, size);
-    og.fillStyle = LIGHT_COLORS[type];
-    og.fillRect(px, py, size, edge);
-    og.fillStyle = DARK_COLORS[type];
-    og.fillRect(px, py + size - edge, size, edge);
+function drawMiniPanel(color, px, py, size) {
+    const style = PANEL_STYLES[color];
+    const inset = Math.max(0.5, size * 0.06);
+    og.fillStyle = style.base;
+    og.beginPath();
+    og.roundRect(px + inset, py + inset, size - inset * 2, size - inset * 2, size * 0.25);
+    og.fill();
+    og.fillStyle = style.light;
+    og.fillRect(px + size * 0.25, py + size * 0.2, size * 0.5, Math.max(1, size * 0.14));
 }
 
 // 対戦の勝敗を表示する。title は 'WIN' など、score は勝ち数の表示、note は「相手を待っています」などの一言。
@@ -276,13 +324,14 @@ export function showVersusResult(title, score, { note = '', canRematch = true } 
     versusResultElement.querySelector('.versus-result-score').textContent = score;
     versusResultElement.querySelector('.versus-result-note').textContent = note;
     versusResultElement.querySelector('[data-action="rematch"]').disabled = !canRematch;
+    versusResultElement.dataset.result = title;
     versusResultElement.style.visibility = 'visible';
-    canvas.style.filter = `blur(${BLOCK_SIZE / 4}px)`;
+    canvas.style.filter = `blur(${BLOCK_SIZE / 6}px) saturate(0.8)`;
 }
 
 export function hideVersusResult() {
     versusResultElement.style.visibility = 'hidden';
-    canvas.style.filter = 'blur(0px)';
+    canvas.style.filter = '';
 }
 
 // お邪魔ブロックのゲージ（ratio は 0〜1）
@@ -297,14 +346,10 @@ export function showGameOver(seconds, maxChain) {
     scoreElement.textContent = seconds.toFixed(1);
     maxChainElement.textContent = maxChain;
     gameOverElement.style.visibility = 'visible';
-    gameOverElement.style.transition = 'filter 0.666s';
-    gameOverElement.style.filter = 'blur(0px)';
-    canvas.style.filter = `blur(${BLOCK_SIZE / 4}px)`;
+    canvas.style.filter = `blur(${BLOCK_SIZE / 6}px) saturate(0.8)`;
 }
 
-// ゲームオーバー非表示
 export function hideGameOver() {
     gameOverElement.style.visibility = 'hidden';
-    gameOverElement.style.filter = `blur(${BLOCK_SIZE / 4}px)`;
-    canvas.style.filter = 'blur(0px)';
+    canvas.style.filter = '';
 }

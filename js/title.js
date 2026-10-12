@@ -1,4 +1,5 @@
-import { RELIEF, LIGHT_COLORS } from './constants.js';
+import { PANEL_STYLES } from './constants.js';
+import { panelImageUrl } from './panel-art.js';
 import { SETTING_OPTIONS, loadSettings, saveSettings } from './settings.js';
 import { initSound } from './sound.js';
 
@@ -13,9 +14,14 @@ export function showTitle({ onSolo, onOnline }) {
     started = false;
     const settings = loadSettings();
 
-    // 青（最後の色）は「むずかしい」だけで出るので、タイトルには並べない
-    const blocks = RELIEF.slice(0, -1).map((relief, i) =>
-        `<span class="title-block" style="color: ${LIGHT_COLORS[i]}; --i: ${i}">${relief}</span>`
+    // 最後の色は「むずかしい」だけで出るので、タイトルには並べない
+    const blocks = PANEL_STYLES.slice(0, -1).map((_, i) =>
+        `<img class="title-block" src="${panelImageUrl(i, 48)}" alt="" style="--i: ${i}">`
+    ).join('');
+    // タイトルの文字は、1文字ずつパネルの色で塗る
+    const letters = [...'PANEL DE PON'].map((ch, i) => ch === ' '
+        ? '<span class="title-space"></span>'
+        : `<span style="color: ${PANEL_STYLES[i % (PANEL_STYLES.length - 1)].base}">${ch}</span>`
     ).join('');
 
     const settingGroups = SETTING_OPTIONS.map(option => `
@@ -35,21 +41,18 @@ export function showTitle({ onSolo, onOnline }) {
     titleElement.id = 'title-screen';
     titleElement.innerHTML = `
         <div class="title-content">
-            <h1 class="title-text">PANEL DE PON</h1>
+            <h1 class="title-text" aria-label="PANEL DE PON">${letters}</h1>
             <div class="title-blocks">${blocks}</div>
             <div class="settings">${settingGroups}</div>
             <div class="start-buttons">
                 <button type="button" class="start-button" data-mode="solo">ひとりで遊ぶ</button>
                 <button type="button" class="start-button online" data-mode="online">オンライン対戦</button>
             </div>
-            <div class="controls">
-                <div class="control-section">
-                    <h3>操作方法</h3>
-                    <p>ブロックを左右にドラッグ : 移動</p>
-                    <p>フィールドの外を長押し : せり上げ</p>
-                    <p>フィールドの外をダブルタップ : 平滑化</p>
-                </div>
-            </div>
+            <dl class="controls">
+                <dt>パネルを左右にドラッグ</dt><dd>動かす</dd>
+                <dt>フィールドの外を長押し</dt><dd>せり上げ</dd>
+                <dt>フィールドの外をダブルタップ</dt><dd>ならす</dd>
+            </dl>
         </div>
     `;
     document.body.appendChild(titleElement);

@@ -3,6 +3,7 @@ import {
     canvas, gameOverElement, gaugeElement,
     opponentCanvas, opponentLabel, incomingElement, versusResultElement
 } from './renderer.js';
+import { pixelRatio } from './panel-art.js';
 
 const GAUGE_GAP = 4; // ゲージとフィールドの間隔（px）
 const OPPONENT_SCALE = 0.45; // 相手のフィールドの大きさ（自分のフィールドに対する比）
@@ -24,14 +25,13 @@ export function doLayout(nextMode = mode) {
     const maxBlockSizeY = Math.floor((h * 0.85) / HEIGHT);
     setBlockSize(Math.max(MIN_BLOCK_SIZE, Math.min(MAX_BLOCK_SIZE, maxBlockSizeX, maxBlockSizeY)));
 
+    // キャンバスは画面の画素密度の分だけ細かく描き、表示の大きさは CSS で決める
+    const ratio = pixelRatio();
     const canvasWidth = BLOCK_SIZE * WIDTH;
     const canvasHeight = BLOCK_SIZE * HEIGHT;
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-
+    setCanvasSize(canvas, canvasWidth, canvasHeight, ratio);
     const opponentSize = Math.floor(BLOCK_SIZE * OPPONENT_SCALE);
-    opponentCanvas.width = opponentSize * WIDTH;
-    opponentCanvas.height = opponentSize * HEIGHT;
+    setCanvasSize(opponentCanvas, opponentSize * WIDTH, opponentSize * HEIGHT, ratio);
 
     for (const el of [gameOverElement, versusResultElement]) {
         Object.assign(el.style, {
@@ -71,4 +71,11 @@ export function doLayout(nextMode = mode) {
         width: `${opponentCanvas.offsetWidth}px`,
         fontSize: `${Math.max(10, gaugeHeight)}px`
     });
+}
+
+function setCanvasSize(element, width, height, ratio) {
+    element.width = Math.round(width * ratio);
+    element.height = Math.round(height * ratio);
+    element.style.width = `${width}px`;
+    element.style.height = `${height}px`;
 }
