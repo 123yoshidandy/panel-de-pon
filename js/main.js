@@ -31,6 +31,7 @@ let lobby = null; // 最後に届いた部屋の状態（lobby.seat が自分の
 let matchId = null; // 遊んでいる（遊んだ）対戦の番号
 let resumedMatchId = null; // つなぎ直したときに進んでいた対戦の番号（途中から始めない）
 let resuming = false; // 参加した直後で、まだ部屋の状態が届いていない
+let lastState = null; // 最後に届いた自分のビュー { matchId, view }
 let winsById = {}; // 参加者の id ごとの通算の勝ち数
 let lastError = ''; // 勝敗の画面に出すエラー
 let countdown = 0; // 対戦開始までの残りフレーム数
@@ -184,6 +185,7 @@ function leaveOnline() {
     net = null;
     lobby = null;
     matchId = null;
+    lastState = null;
     winsById = {};
     hideOnline();
     setVersusVisible(false);
@@ -215,22 +217,32 @@ function receiveLobby(received) {
         // 相手が「部屋に戻る」を押した
         if (lobby.status === 'lobby') {
             enterRoom();
-        } else if (scene === 'versus-end') {
-            updateResult();
+        } else {
+            if (lobby.status === 'ended') showResultIfEnded();
+            if (scene === 'versus-end') updateResult();
         }
     }
 }
 
-// 自分のビュー（対戦の開始・勝敗）が届いた
+// 自分のビュー（対戦の開始・勝敗）が届いた。
+// 対戦が終わるときは、勝敗の state が先、status: 'ended' の lobby があとに届く
 function receiveState({ matchId: id, view }) {
+    lastState = { matchId: id, view };
     view.ids.forEach((playerId, i) => { winsById[playerId] = view.wins[i]; });
     if (lobby?.status === 'playing' && view.loser === null && id !== matchId && id !== resumedMatchId) {
         startVersus(id, view.seed);
-    } else if (lobby?.status === 'ended' && id === matchId && (scene === 'versus' || scene === 'versus-end')) {
-        receiveResult(view.loser);
+    } else if (view.loser !== null || lobby?.status === 'ended') {
+        showResultIfEnded();
     } else if (scene === 'online' && lobby) {
         showRoom();
     }
+}
+
+// 遊んでいた対戦が終わっていれば、勝敗を表示する（中止は loser が null のまま lobby で終わりが分かる）
+function showResultIfEnded() {
+    if (scene !== 'versus' && scene !== 'versus-end') return;
+    if (lastState?.matchId !== matchId) return;
+    if (lastState.view.loser !== null || lobby?.status === 'ended') receiveResult(lastState.view.loser);
 }
 
 const mySeat = () => lobby?.seat ?? 0;
