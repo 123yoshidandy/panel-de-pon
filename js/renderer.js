@@ -25,10 +25,14 @@ export let opponentLabel;
 export let incomingElement;
 export let versusResultElement;
 let og;
+
+// プレイ中の画面の上に置くボタン（ホーム・遊び方）
+export let playMenuElement;
 let incomingKey = '';
 
-// 描画の初期化。onRestart・onBackToTitle はゲームオーバー画面、onRematch・onBackToRoom は対戦の勝敗画面のボタンで呼ばれる
-export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom }) {
+// 描画の初期化。onRestart・onBackToTitle はゲームオーバー画面、onRematch・onBackToRoom は対戦の勝敗画面、
+// onHome・onHelp はプレイ中の画面の上のボタンで呼ばれる
+export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom, onHome, onHelp }) {
     canvas = document.createElement('canvas');
     canvas.classList.add('field');
     g = canvas.getContext('2d');
@@ -90,6 +94,21 @@ export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom
         });
     }
     document.body.append(gameOverElement);
+
+    playMenuElement = document.createElement('div');
+    playMenuElement.classList.add('play-menu');
+    playMenuElement.innerHTML = `
+        <button type="button" class="play-menu-button" data-action="home">ホーム</button>
+        <button type="button" class="play-menu-button" data-action="help">遊び方</button>
+    `;
+    const menuActions = { home: onHome, help: onHelp };
+    for (const button of playMenuElement.querySelectorAll('button')) {
+        button.addEventListener('click', () => {
+            button.blur();
+            menuActions[button.dataset.action]();
+        });
+    }
+    document.body.append(playMenuElement);
 
     return canvas;
 }
@@ -274,9 +293,10 @@ function renderIncoming(incoming) {
     ).join('');
 }
 
-// フィールドとゲージを出すか（タイトルや部屋の画面の後ろに、前のゲームの盤面を残さないように）
+// フィールドとゲージ・上のボタンを出すか（タイトルや部屋の画面の後ろに、前のゲームの盤面を残さないように）
 export function setFieldVisible(visible) {
     canvas.style.visibility = visible ? 'visible' : 'hidden';
+    playMenuElement.style.visibility = visible ? 'visible' : 'hidden';
     if (!visible) {
         gaugeElement.style.visibility = 'hidden';
         hideGameOver();

@@ -1,13 +1,15 @@
 import { WIDTH, HEIGHT, BLOCK_SIZE, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE, setBlockSize } from './constants.js';
 import {
     canvas, gameOverElement, gaugeElement,
-    opponentCanvas, opponentLabel, incomingElement, versusResultElement
+    opponentCanvas, opponentLabel, incomingElement, versusResultElement, playMenuElement
 } from './renderer.js';
 import { pixelRatio } from './panel-art.js';
 
 const GAUGE_GAP = 4; // ゲージとフィールドの間隔（px）
 const OPPONENT_SCALE = 0.45; // 相手のフィールドの大きさ（自分のフィールドに対する比）
 const OPPONENT_GAP = 12; // 自分と相手のフィールドの間隔（px）
+const MENU_SPACE = 48; // 画面の上に空ける、ホーム・遊び方のボタンの分の高さ（px）
+const MENU_TOP = 8; // ボタンの上の余白（px）
 
 let mode = 'solo'; // 'solo' | 'versus'
 
@@ -22,7 +24,7 @@ export function doLayout(nextMode = mode) {
     // 縦横それぞれの制約から収まる最大サイズを求める（対戦では相手のフィールドの分も横幅に入れる）
     const columns = versus ? WIDTH * (1 + OPPONENT_SCALE) : WIDTH;
     const maxBlockSizeX = Math.floor((w * 0.92 - (versus ? OPPONENT_GAP : 0)) / columns);
-    const maxBlockSizeY = Math.floor((h * 0.85) / HEIGHT);
+    const maxBlockSizeY = Math.floor(((h - MENU_SPACE) * 0.88) / HEIGHT);
     setBlockSize(Math.max(MIN_BLOCK_SIZE, Math.min(MAX_BLOCK_SIZE, maxBlockSizeX, maxBlockSizeY)));
 
     // キャンバスは画面の画素密度の分だけ細かく描き、表示の大きさは CSS で決める
@@ -44,11 +46,18 @@ export function doLayout(nextMode = mode) {
     // 枠線を含めたサイズで中央揃え（対戦では自分と相手を並べた幅で）
     const totalWidth = canvas.offsetWidth + (versus ? OPPONENT_GAP + opponentCanvas.offsetWidth : 0);
     const left = (w - totalWidth) * 0.5;
-    const top = (h - canvas.offsetHeight) * 0.5;
+    const top = MENU_SPACE + (h - MENU_SPACE - canvas.offsetHeight) * 0.5;
     for (const el of [canvas, gameOverElement, versusResultElement]) {
         el.style.left = `${left}px`;
         el.style.top = `${top}px`;
     }
+
+    // ホーム・遊び方のボタンは画面の上に、フィールドの左右の端にそろえて置く
+    Object.assign(playMenuElement.style, {
+        left: `${left}px`,
+        top: `${MENU_TOP}px`,
+        width: `${totalWidth}px`
+    });
 
     // ゲージ・予告はフィールドの真上に、描画領域と同じ幅で置く
     const gaugeHeight = Math.max(6, Math.round(BLOCK_SIZE / 3));

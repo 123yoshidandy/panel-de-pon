@@ -1,13 +1,14 @@
 import { paintPlayIllustration } from './panel-art.js';
 import { SETTING_OPTIONS, loadSettings, saveSettings } from './settings.js';
 import { initSound } from './sound.js';
+import { showHelp } from './help.js';
 
 let titleElement;
 let callbacks;
 let started = false;
 
 // タイトル画面を表示する（何度でも呼べる）。
-// 「ひとりで遊ぶ」で onSolo(settings)、「オンライン対戦」で onOnline(settings) を呼ぶ
+// 「1人プレイ」で onSolo(settings)、「オンライン対戦」で onOnline(settings) を呼ぶ
 export function showTitle({ onSolo, onOnline }) {
     callbacks = { solo: onSolo, online: onOnline };
     started = false;
@@ -43,11 +44,7 @@ export function showTitle({ onSolo, onOnline }) {
                 <button type="button" class="start-button" data-mode="solo">1人プレイ</button>
                 <button type="button" class="start-button online" data-mode="online">オンライン対戦</button>
             </div>
-            <dl class="controls">
-                <dt>パネルを左右にドラッグ</dt><dd>移動</dd>
-                <dt>フィールド外を長押し</dt><dd>せり上げ</dd>
-                <dt>フィールド外をダブルタップ</dt><dd>段差をならす</dd>
-            </dl>
+            <button type="button" class="help-link" data-action="help">遊び方・操作方法</button>
         </div>
     `;
     document.body.appendChild(titleElement);
@@ -56,6 +53,7 @@ export function showTitle({ onSolo, onOnline }) {
     for (const button of titleElement.querySelectorAll('.start-button')) {
         button.addEventListener('click', () => start(button.dataset.mode));
     }
+    titleElement.querySelector('[data-action=help]').addEventListener('click', () => showHelp());
 }
 
 function readSettings() {
@@ -66,7 +64,7 @@ function readSettings() {
     return settings;
 }
 
-// mode は 'solo'（ひとりで遊ぶ） | 'online'（オンライン対戦）
+// mode は 'solo'（1人プレイ） | 'online'（オンライン対戦）
 function start(mode) {
     // フェードアウト中に再び押されても二重に開始しない
     if (started) return;

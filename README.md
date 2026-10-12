@@ -12,6 +12,7 @@
   - パネルを左右にドラッグ：移動
   - フィールドの外を長押し：せり上げ
   - フィールドの外をダブルタップ（ダブルクリック）：段差をならす（台を揺らして、高い列のパネルを隣の低い列へずらす）
+- **遊び方**：タイトル画面とプレイ中の画面から、ルールと操作方法を表示できる。プレイ中は「ホーム」でタイトルに戻れる（1人プレイでは、遊び方や確認の表示中はゲームが止まる）
 - **設定**：難易度（練習／ノーマル／ハード。パネルは5色で、ハードだけ1色増えて6色）、効果音、BGM。設定と名前はブラウザに保存する
 
 ## 遊び方
@@ -49,12 +50,13 @@ URLに `?server=wss://...` を付けると、接続先のサーバーを変え�
 ## 構成
 
 ```
-index.html css/ sounds/   画面（GitHub Pages でそのまま公開する）
+index.html css/ sounds/ icons/   画面（GitHub Pages でそのまま公開する）
 js/
   game.js          ゲームの進行（DOMに依存しない。対戦用のルールも含む）
   panel-art.js     パネルとお邪魔ブロックの絵
   constants.js settings.js random.js
   renderer.js layout.js input.js sound.js title.js
+  help.js          遊び方の画面と、確認のダイアログ
   netplay/         サーバーとの通信（netplay-kit からコピーしたもの。ここでは直さない）
   online-config.js 接続先のサーバーの URL
   lobby.js         オンライン対戦の画面（部屋の作成・参加）

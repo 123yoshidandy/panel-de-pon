@@ -6,6 +6,7 @@ import { initInput, pollInput } from './input.js';
 import { doLayout } from './layout.js';
 import { resetGame, updateGame, gameState, receiveGarbage, getSnapshot } from './game.js';
 import { showTitle } from './title.js';
+import { showHelp, showConfirm } from './help.js';
 import { showOnlineEntry, showLobby, setOnlineMessage, hideOnline } from './lobby.js';
 import NetplayClient from './netplay/netplay-client.mjs';
 import { getServerUrl } from './online-config.js';
@@ -24,6 +25,7 @@ let looping = false;
 let lastTime = 0;
 let pendingTime = 0;
 let settings = null; // タイトル画面で選んだ設定
+let paused = false; // 1人プレイで、遊び方や確認の画面を開いていて止めている
 
 // オンライン対戦
 let net = null; // サーバーとの通信（NetplayClient）
@@ -44,7 +46,10 @@ let resultTitle = null; // 表示中の勝敗（'WIN' など）
 function ensureSetup() {
     if (initialized) return;
     initialized = true;
-    const canvas = initRenderer({ onRestart: restart, onBackToTitle: backToTitle, onRematch: rematch, onBackToRoom: backToRoom });
+    const canvas = initRenderer({
+        onRestart: restart, onBackToTitle: backToTitle, onRematch: rematch, onBackToRoom: backToRoom,
+        onHome: goHome, onHelp: openHelp
+    });
     doLayout('solo');
     window.addEventListener('resize', () => doLayout());
     initInput(canvas);
@@ -57,11 +62,55 @@ function applySoundSettings() {
 
 function openTitle() {
     scene = 'title';
+    paused = false;
     if (initialized) {
         setFieldVisible(false);
         setVersusVisible(false);
     }
     showTitle({ onSolo: startSolo, onOnline: openOnline });
+}
+
+// プレイ中の「遊び方」。1人プレイなら閉じるまで止める（対戦は止められない）
+function openHelp() {
+    pause();
+    showHelp({ versus: scene === 'versus' || scene === 'versus-end', onClose: resume });
+}
+
+// プレイ中の「ホーム」。ゲームオーバー後ならそのまま、遊んでいる途中なら確かめてからタイトルへ戻る
+function goHome() {
+    if (scene === 'gameover') {
+        openTitle();
+    } else if (scene === 'playing') {
+        pause();
+        showConfirm({
+            title: 'タイトルに戻りますか？',
+            text: '今のゲームは終わります',
+            yes: 'タイトルへ',
+            no: '続ける',
+            onYes: () => {
+                stopBgm();
+                openTitle();
+            },
+            onNo: resume
+        });
+    } else if (scene === 'versus' || scene === 'versus-end') {
+        showConfirm({
+            title: '部屋を出てタイトルに戻りますか？',
+            text: scene === 'versus' ? '対戦の途中で部屋を出ると負けになります' : '',
+            yes: '部屋を出る',
+            no: 'キャンセル',
+            onYes: leaveOnline
+        });
+    }
+}
+
+function pause() {
+    if (scene === 'playing') paused = true;
+}
+
+function resume() {
+    paused = false;
+    pollInput(); // 止めている間の入力は捨てる
 }
 
 // ゲームループを動かす（すでに動いていれば何もしない）
@@ -78,7 +127,7 @@ function tick(now) {
     pendingTime += Math.min(now - lastTime, FRAME_MS * MAX_FRAMES_PER_TICK);
     lastTime = now;
     for (; pendingTime >= FRAME_MS; pendingTime -= FRAME_MS) {
-        if (scene === 'playing') stepSolo();
+        if (scene === 'playing' && !paused) stepSolo();
         else if (scene === 'versus') stepVersus();
     }
 
@@ -128,6 +177,7 @@ function startGame(selected) {
     pollInput(); // 開始前の入力は捨てる
     hideGameOver();
     scene = 'playing';
+    paused = false;
     // 新しい盤面を描いてから見せる（前の盤面や空のフィールドが一瞬見えないように）
     render(gameState);
     setFieldVisible(true);

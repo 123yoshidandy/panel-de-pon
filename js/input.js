@@ -75,8 +75,8 @@ function onFieldPointerUp(ev) {
 // フィールドの外を長押ししている間は加速、ダブルタップで平滑化
 function onOutsidePointerDown(ev) {
     if (!isPrimary(ev) || raisePointerId !== null) return;
-    // フィールド上や、ボタン・タイトル画面などの操作は対象外
-    if (ev.target === canvas || ev.target.closest?.('button, input, label, #title-screen, #online-screen')) return;
+    // フィールド上や、ボタン・タイトル画面・遊び方の画面などの操作は対象外
+    if (ev.target === canvas || ev.target.closest?.('button, input, label, #title-screen, #online-screen, #help-screen, .play-menu')) return;
     if (performance.now() - lastTapTime < DOUBLE_TAP_MS) {
         lastTapTime = -Infinity;
         state.flatten = true;

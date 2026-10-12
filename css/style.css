@@ -4,6 +4,7 @@
     --ink-soft: #8d7fae;
     --accent: #c8102e; /* 主なボタン・選択中の設定 */
     --accent-deep: #7d0a1d;
+    --accent-text: #e8475b; /* タイトル・見出しの文字 */
     --accent2: #8c1239; /* オンライン対戦などのボタン */
     --accent2-deep: #520a21;
     --card: rgba(255, 255, 255, 0.96);
@@ -246,7 +247,7 @@ button {
     font-weight: 800;
     letter-spacing: 0.06em;
     line-height: 1.1;
-    color: var(--accent);
+    color: var(--accent-text);
 }
 
 .title-illustration {
@@ -329,16 +330,21 @@ button {
 
 .start-buttons {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 18px;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.start-buttons .start-button {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 8px;
 }
 
 .start-button {
     min-width: 220px;
     padding: 12px 32px;
-    font-size: 20px;
+    font-size: 19px;
+    white-space: nowrap;
     font-weight: 800;
     color: #fff;
     background: var(--accent);
@@ -362,24 +368,14 @@ button {
     box-shadow: 0 1px 0 var(--accent2-deep);
 }
 
-/* 操作方法 */
-.controls {
-    display: grid;
-    grid-template-columns: auto auto;
-    justify-content: center;
-    gap: 4px 12px;
-    margin: 0;
-    font-size: 13px;
-    text-align: left;
-}
-
-.controls dt {
-    color: var(--ink-soft);
-}
-
-.controls dd {
-    margin: 0;
+.help-link {
+    font-size: 14px;
     font-weight: 700;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
 }
 
 /* ===== オンライン対戦の画面 ===== */
@@ -395,7 +391,7 @@ button {
     margin: 0 0 6px;
     font-size: 24px;
     font-weight: 800;
-    color: var(--accent);
+    color: var(--accent-text);
 }
 
 .online-field {
@@ -512,6 +508,160 @@ button {
     color: var(--ink-soft);
 }
 
+/* ===== プレイ中の画面の上のボタン（位置と幅は layout.js で設定） ===== */
+
+.play-menu {
+    position: absolute;
+    display: flex;
+    justify-content: space-between;
+}
+
+.play-menu-button {
+    padding: 6px 16px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.92);
+    border: none;
+    border-radius: 999px;
+    box-shadow: 0 3px 0 rgba(60, 40, 140, 0.35);
+    cursor: pointer;
+}
+
+.play-menu-button:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 rgba(60, 40, 140, 0.35);
+}
+
+/* ===== 遊び方・確認の画面 ===== */
+
+#help-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    padding: 16px;
+    background: rgba(30, 20, 80, 0.45);
+    z-index: 1100;
+    overflow-y: auto;
+    touch-action: pan-y;
+}
+
+.help-card {
+    margin: auto;
+    padding: 20px 20px 18px;
+    width: min(440px, 100%);
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 12px 40px rgba(40, 20, 120, 0.35);
+    text-align: left;
+}
+
+.help-card.confirm {
+    width: min(340px, 100%);
+    text-align: center;
+}
+
+.help-title {
+    margin: 0 0 10px;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    color: var(--accent-text);
+}
+
+.help-note {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: center;
+}
+
+.help-card section {
+    margin-bottom: 14px;
+}
+
+.help-card h3 {
+    margin: 0 0 6px;
+    padding-left: 8px;
+    font-size: 15px;
+    font-weight: 800;
+    border-left: 4px solid var(--accent-text);
+}
+
+.help-card ul {
+    margin: 0;
+    padding-left: 1.3em;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.help-card strong {
+    color: var(--accent-text);
+}
+
+.help-controls {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.help-controls dt {
+    color: var(--ink-soft);
+    white-space: nowrap;
+}
+
+.help-controls dd {
+    margin: 0;
+    font-weight: 700;
+}
+
+.help-detail {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+
+.help-close {
+    display: block;
+    margin: 4px auto 0;
+    min-width: 140px;
+    padding: 9px 24px;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--ink);
+    background: #f4effc;
+    border: none;
+    border-radius: 999px;
+    box-shadow: 0 3px 0 #ddd2f2;
+    cursor: pointer;
+}
+
+.help-close.primary {
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 3px 0 var(--accent-deep);
+}
+
+.help-close:active {
+    transform: translateY(2px);
+    box-shadow: none;
+}
+
+.confirm-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.confirm-buttons .help-close {
+    margin: 0;
+    min-width: 0;
+    flex: 1;
+}
+
 @keyframes blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.35; }
@@ -537,6 +687,6 @@ button {
     }
 
     .start-button {
-        font-size: 18px;
+        font-size: 17px;
     }
 }
