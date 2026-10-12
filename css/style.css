@@ -243,19 +243,9 @@ button {
     margin: 4px 0 8px;
     font-size: 40px;
     font-weight: 800;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
     line-height: 1.1;
-    -webkit-text-stroke: 1.5px #2a1f6e;
-    paint-order: stroke fill;
-    text-shadow: 0 3px 0 #2a1f6e;
-}
-
-.title-text span {
-    display: inline-block;
-}
-
-.title-space {
-    width: 0.35em;
+    color: #2a1f6e;
 }
 
 .title-illustration {

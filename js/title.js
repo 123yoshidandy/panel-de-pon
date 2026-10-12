@@ -1,4 +1,3 @@
-import { PANEL_STYLES } from './constants.js';
 import { paintPlayIllustration } from './panel-art.js';
 import { SETTING_OPTIONS, loadSettings, saveSettings } from './settings.js';
 import { initSound } from './sound.js';
@@ -13,12 +12,6 @@ export function showTitle({ onSolo, onOnline }) {
     callbacks = { solo: onSolo, online: onOnline };
     started = false;
     const settings = loadSettings();
-
-    // タイトルの文字は、1文字ずつパネルの色で塗る
-    const letters = [...'PANEL DE PON'].map((ch, i) => ch === ' '
-        ? '<span class="title-space"></span>'
-        : `<span style="color: ${PANEL_STYLES[i % (PANEL_STYLES.length - 1)].symbol}">${ch}</span>`
-    ).join('');
 
     const fieldset = (option) => `
         <fieldset class="setting">
@@ -40,7 +33,7 @@ export function showTitle({ onSolo, onOnline }) {
     titleElement.id = 'title-screen';
     titleElement.innerHTML = `
         <div class="title-content">
-            <h1 class="title-text" aria-label="PANEL DE PON">${letters}</h1>
+            <h1 class="title-text">パネルでポン</h1>
             <figure class="title-illustration">
                 <canvas aria-label="パネルを指で横に動かし、同じ色を3つそろえて消すところ"></canvas>
                 <figcaption>横に動かして、同じ色を3つそろえよう</figcaption>
