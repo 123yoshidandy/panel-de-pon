@@ -115,7 +115,7 @@ function drawPanel(color, px, py, { variant = 'normal', bounce = 0, scale = 1, a
     g.globalAlpha = alpha;
     if (bounce > 0 && variant === 'normal' && scale === 1) {
         const { slab, mark } = panelLayers(color, size);
-        const dip = Math.sin(Math.PI * bounce / LAND_BOUNCE_FRAMES) * size * 0.07;
+        const dip = Math.sin(Math.PI * bounce / LAND_BOUNCE_FRAMES) * size * 0.13;
         g.drawImage(slab, px, py, size, size);
         // 沈んだ記号が縁にかからないよう、板の面の内側だけに描く
         g.beginPath();
