@@ -6,7 +6,7 @@ import {
     getRaiseOffset, flattenMovePosition, panelOffset, garbageOffset, clearProgress, CLEAR
 } from './game.js';
 import { isGarbageEnabled } from './settings.js';
-import { panelSprite, drawGarbage, pixelRatio } from './panel-art.js';
+import { panelSprite, panelLayers, drawGarbage, pixelRatio } from './panel-art.js';
 
 const POP_EFFECT_FRAMES = 14; // 弾けたあとに輪と星が広がる時間
 const FONT = "'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif";
@@ -108,22 +108,26 @@ function drawBackdrop(raiseY) {
     }
 }
 
-// パネル1枚を描く。bounce（着地の弾み）があれば下を支点につぶす
+// パネル1枚を描く。bounce（着地の弾み）が残っている間は、板は動かさず記号だけを少し下に揺らす
 function drawPanel(color, px, py, { variant = 'normal', bounce = 0, scale = 1, alpha = 1 } = {}) {
     const size = BLOCK_SIZE;
-    const sprite = panelSprite(color, size, variant);
-    let sx = scale;
-    let sy = scale;
-    if (bounce > 0) {
-        const k = Math.sin(Math.PI * bounce / LAND_BOUNCE_FRAMES);
-        sx *= 1 + 0.08 * k;
-        sy *= 1 - 0.12 * k;
-    }
     g.save();
     g.globalAlpha = alpha;
-    g.translate(px + size / 2, py + size);
-    g.scale(sx, sy);
-    g.drawImage(sprite, -size / 2, -size, size, size);
+    if (bounce > 0 && variant === 'normal' && scale === 1) {
+        const { slab, mark } = panelLayers(color, size);
+        const dip = Math.sin(Math.PI * bounce / LAND_BOUNCE_FRAMES) * size * 0.07;
+        g.drawImage(slab, px, py, size, size);
+        // 沈んだ記号が縁にかからないよう、板の面の内側だけに描く
+        g.beginPath();
+        g.rect(px + size * 0.08, py + size * 0.08, size * 0.84, size * 0.84);
+        g.clip();
+        g.drawImage(mark, px, py + dip, size, size);
+    } else {
+        // scale は下を支点に縮める（弾ける直前）
+        g.translate(px + size / 2, py + size);
+        g.scale(scale, scale);
+        g.drawImage(panelSprite(color, size, variant), -size / 2, -size, size, size);
+    }
     g.restore();
 }
 

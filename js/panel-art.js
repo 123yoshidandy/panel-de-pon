@@ -95,7 +95,7 @@ function mix(a, b, t) {
 function paintMark(ctx, size, style) {
     const cx = size / 2;
     const cy = size / 2;
-    const r = size * 0.34;
+    const r = size * 0.39;
     markPath(ctx, style.mark, cx, cy, r);
     ctx.lineJoin = 'round';
     ctx.lineWidth = size * 0.05;
@@ -142,6 +142,28 @@ function createSprite(color, size, variant) {
 export function panelSprite(color, size, variant = 'normal') {
     const key = `${color}:${size}:${variant}:${pixelRatio()}`;
     if (!sprites.has(key)) sprites.set(key, createSprite(color, size, variant));
+    return sprites.get(key);
+}
+
+// 板だけ・記号だけの絵（着地したときに、記号だけを揺らすため）
+export function panelLayers(color, size) {
+    const key = `layers:${color}:${size}:${pixelRatio()}`;
+    if (!sprites.has(key)) {
+        const ratio = pixelRatio();
+        const layer = (paint) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = Math.ceil(size * ratio);
+            const ctx = canvas.getContext('2d');
+            ctx.scale(ratio, ratio);
+            paint(ctx);
+            return canvas;
+        };
+        const style = PANEL_STYLES[color];
+        sprites.set(key, {
+            slab: layer(ctx => paintSlab(ctx, size, size, size, style)),
+            mark: layer(ctx => paintMark(ctx, size, style))
+        });
+    }
     return sprites.get(key);
 }
 
