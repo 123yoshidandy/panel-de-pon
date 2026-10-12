@@ -96,13 +96,13 @@ export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom
 
 // ===== フィールド =====
 
-// 盤面の地（市松模様のうすいマス目）
+// 盤面の地（紺の地に、ごくうすい市松模様のマス目）
 function drawBackdrop(raiseY) {
     const size = BLOCK_SIZE;
     for (let y = -1; y <= HEIGHT; ++y) {
         for (let x = 0; x < WIDTH; ++x) {
             if ((x + y) % 2) continue;
-            g.fillStyle = 'rgba(255, 255, 255, 0.18)';
+            g.fillStyle = 'rgba(255, 255, 255, 0.035)';
             g.fillRect(x * size, y * size - raiseY, size, size);
         }
     }
@@ -306,15 +306,14 @@ export function renderOpponent(snapshot, info) {
     opponentLabel.textContent = `${info.name}${info.connected ? '' : '（切断中）'}`;
 }
 
+// 相手のフィールドの小さなパネル（濃い板に、記号の色の四角）
 function drawMiniPanel(color, px, py, size) {
     const style = PANEL_STYLES[color];
-    const inset = Math.max(0.5, size * 0.06);
+    const inset = Math.max(0.5, size * 0.05);
     og.fillStyle = style.base;
-    og.beginPath();
-    og.roundRect(px + inset, py + inset, size - inset * 2, size - inset * 2, size * 0.25);
-    og.fill();
-    og.fillStyle = style.light;
-    og.fillRect(px + size * 0.25, py + size * 0.2, size * 0.5, Math.max(1, size * 0.14));
+    og.fillRect(px + inset, py + inset, size - inset * 2, size - inset * 2);
+    og.fillStyle = style.symbol;
+    og.fillRect(px + size * 0.28, py + size * 0.28, size * 0.44, size * 0.44);
 }
 
 // 対戦の勝敗を表示する。title は 'WIN' など、score は勝ち数の表示、note は「相手を待っています」などの一言。

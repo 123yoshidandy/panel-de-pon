@@ -17,7 +17,7 @@ export function showTitle({ onSolo, onOnline }) {
     // タイトルの文字は、1文字ずつパネルの色で塗る
     const letters = [...'PANEL DE PON'].map((ch, i) => ch === ' '
         ? '<span class="title-space"></span>'
-        : `<span style="color: ${PANEL_STYLES[i % (PANEL_STYLES.length - 1)].base}">${ch}</span>`
+        : `<span style="color: ${PANEL_STYLES[i % (PANEL_STYLES.length - 1)].symbol}">${ch}</span>`
     ).join('');
 
     const settingGroups = SETTING_OPTIONS.map(option => `

@@ -61,8 +61,8 @@ function markPath(ctx, mark, cx, cy, r) {
 
 // (0, 0) から幅 w・高さ h の、縁が立体になった板を描く（左上の縁は明るく、右下の縁は暗い）
 function paintSlab(ctx, w, h, unit, style) {
-    const radius = unit * 0.1;
-    const edge = unit * 0.09;
+    const radius = unit * 0.08;
+    const edge = unit * 0.08;
     // 外側：右下の暗い縁
     ctx.fillStyle = style.deep;
     roundedRect(ctx, 0, 0, w, h, radius);
@@ -76,9 +76,9 @@ function paintSlab(ctx, w, h, unit, style) {
     ctx.restore();
     // 面（上が明るく下が濃い）
     const face = ctx.createLinearGradient(0, edge, 0, h - edge);
-    face.addColorStop(0, mix(style.base, style.light, 0.35));
-    face.addColorStop(0.55, style.base);
-    face.addColorStop(1, mix(style.base, style.deep, 0.35));
+    face.addColorStop(0, mix(style.base, style.light, 0.18));
+    face.addColorStop(0.5, style.base);
+    face.addColorStop(1, mix(style.base, style.deep, 0.25));
     ctx.fillStyle = face;
     roundedRect(ctx, edge, edge, w - edge * 2, h - edge * 2, radius * 0.6);
     ctx.fill();
@@ -91,23 +91,23 @@ function mix(a, b, t) {
     return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(',')})`;
 }
 
-// 記号を描く（淡い色で塗り、濃い色で縁取り、左上につや）
+// 記号を大きく描く（鮮やかな色で塗り、濃い色で縁取り、左上に弱いつや）
 function paintMark(ctx, size, style) {
     const cx = size / 2;
     const cy = size / 2;
-    const r = size * 0.3;
+    const r = size * 0.34;
     markPath(ctx, style.mark, cx, cy, r);
     ctx.lineJoin = 'round';
-    ctx.lineWidth = size * 0.07;
+    ctx.lineWidth = size * 0.05;
     ctx.strokeStyle = style.deep;
     ctx.stroke();
-    ctx.fillStyle = style.light;
+    ctx.fillStyle = style.symbol;
     ctx.fill();
     ctx.save();
     ctx.clip();
     const gloss = ctx.createLinearGradient(cx - r, cy - r, cx + r * 0.2, cy + r * 0.2);
-    gloss.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-    gloss.addColorStop(0.5, 'rgba(255, 255, 255, 0.25)');
+    gloss.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+    gloss.addColorStop(0.45, 'rgba(255, 255, 255, 0.1)');
     gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = gloss;
     ctx.fillRect(cx - r * 1.2, cy - r * 1.2, r * 2.4, r * 2.4);
@@ -263,7 +263,7 @@ export function paintPlayIllustration(canvas) {
     const top = (height - size * 4) / 2;
 
     // フィールドの地
-    ctx.fillStyle = 'rgba(40, 30, 80, 0.75)';
+    ctx.fillStyle = '#1b1462';
     roundedRect(ctx, left - size * 0.15, top - size * 0.15, size * 6.3, size * 4.3, size * 0.2);
     ctx.fill();
 
