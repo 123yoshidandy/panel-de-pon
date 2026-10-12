@@ -86,7 +86,8 @@ body {
 }
 
 /* タイトル画面 */
-#title-screen {
+#title-screen,
+#online-screen {
     position: fixed;
     top: 0;
     left: 0;
@@ -218,6 +219,176 @@ body {
 
 .start-button:hover {
     background: rgba(255, 255, 255, 0.25);
+}
+
+/* タイトルの「ひとりで遊ぶ」「オンライン対戦」 */
+.start-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.start-buttons .start-button {
+    margin-bottom: 0;
+}
+
+.start-button.online {
+    animation: none;
+}
+
+/* オンライン対戦の画面 */
+.online-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    min-width: 260px;
+}
+
+.online-title {
+    margin: 0 0 6px;
+    font-size: 24px;
+}
+
+.online-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.online-field input {
+    width: 200px;
+    padding: 8px;
+    font-size: 18px;
+    text-align: center;
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.online-button {
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    padding: 8px 32px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid white;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.online-button:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.online-or,
+.online-guide {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.online-guide {
+    margin: 0;
+}
+
+.online-message {
+    min-height: 1.2em;
+    margin: 0;
+    font-size: 13px;
+    color: rgb(255, 200, 80);
+}
+
+.online-link {
+    font-family: inherit;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    background: none;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.lobby-players {
+    list-style: none;
+    margin: 4px 0;
+    padding: 0;
+    width: 100%;
+}
+
+.lobby-player {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+}
+
+.lobby-player.empty {
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.lobby-name {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.lobby-wins {
+    margin-left: auto;
+    font-size: 14px;
+}
+
+.lobby-note {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* 対戦中の表示（位置とサイズは layout.js で設定） */
+.opponent-field {
+    position: absolute;
+    border: rgba(255, 255, 255, 0.103) 4px solid;
+    box-sizing: content-box;
+}
+
+.opponent-label {
+    position: absolute;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.incoming {
+    position: absolute;
+    display: flex;
+    gap: 2px;
+    box-sizing: border-box;
+}
+
+.incoming-piece {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    background: rgb(176, 176, 208);
+    border: 1px solid rgb(96, 96, 128);
+    color: rgb(48, 48, 64);
+    line-height: 1;
+}
+
+.versus-result-title {
+    font-size: 1.5em;
 }
 
 @keyframes blink {

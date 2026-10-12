@@ -17,12 +17,40 @@ let g;
 let scoreElement;
 let maxChainElement;
 
-// 描画の初期化。onRestart・onBackToTitle はゲームオーバー画面のボタンで呼ばれる
-export function initRenderer({ onRestart, onBackToTitle }) {
+// 対戦用（相手のフィールド・相手の名前・自分への予告・勝敗の表示）
+export let opponentCanvas;
+export let opponentLabel;
+export let incomingElement;
+export let versusResultElement;
+let og;
+let incomingKey = '';
+
+// 描画の初期化。onRestart・onBackToTitle はゲームオーバー画面、onBackToRoom は対戦の勝敗画面のボタンで呼ばれる
+export function initRenderer({ onRestart, onBackToTitle, onBackToRoom }) {
     canvas = document.createElement('canvas');
     canvas.classList.add('field');
     g = canvas.getContext('2d');
     document.body.append(canvas);
+
+    opponentCanvas = document.createElement('canvas');
+    opponentCanvas.classList.add('opponent-field');
+    og = opponentCanvas.getContext('2d');
+    opponentLabel = document.createElement('div');
+    opponentLabel.classList.add('opponent-label');
+    incomingElement = document.createElement('div');
+    incomingElement.classList.add('incoming');
+    versusResultElement = document.createElement('div');
+    versusResultElement.classList.add('message');
+    versusResultElement.innerHTML = `
+        <div class="versus-result-title"></div>
+        <div class="game-over-score versus-result-score"></div>
+        <div class="game-over-buttons">
+            <button type="button" class="game-over-button" data-action="room">部屋に戻る</button>
+        </div>
+    `;
+    versusResultElement.querySelector('[data-action="room"]').addEventListener('click', () => onBackToRoom());
+    document.body.append(opponentCanvas, opponentLabel, incomingElement, versusResultElement);
+    setVersusVisible(false);
 
     // お邪魔ブロックのゲージ
     gaugeElement = document.createElement('div');
@@ -124,8 +152,8 @@ function drawPopup(popup, raiseY) {
     drawText(isChain ? `x${popup.value}` : `${popup.value}`, px + BLOCK_SIZE / 2, py + BLOCK_SIZE * 0.4);
 }
 
-// 描画処理
-export function render(state) {
+// 描画処理。countdown が 1 以上なら、対戦開始までの秒数を大きく表示する
+export function render(state, { countdown = 0 } = {}) {
     g.clearRect(0, 0, canvas.width, canvas.height);
     g.font = `${BLOCK_SIZE * 0.8}px メイリオ`;
     const raiseY = getRaiseOffset(state);
@@ -171,8 +199,84 @@ export function render(state) {
         drawPopup(popup, raiseY);
     }
 
+    if (countdown > 0) {
+        g.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        g.fillRect(0, 0, canvas.width, canvas.height);
+        g.fillStyle = 'white';
+        g.font = `${BLOCK_SIZE * 3}px Anton, sans-serif`;
+        drawText(String(countdown), canvas.width / 2, canvas.height / 2);
+    }
+
     gaugeElement.style.visibility = state.mode === 'solo' && isGarbageEnabled(state.settings) ? 'visible' : 'hidden';
     renderGauge(state.garbageGauge / GARBAGE_GAUGE_MAX);
+    if (state.mode === 'versus') renderIncoming(state.incoming);
+}
+
+// 自分に送られてきて、まだ降っていないお邪魔ブロック（幅に比例した長さで並べ、2段以上は段数も出す）
+function renderIncoming(incoming) {
+    const key = incoming.map(p => `${p.width}x${p.height}`).join(',');
+    if (key === incomingKey) return;
+    incomingKey = key;
+    incomingElement.innerHTML = incoming.map(p =>
+        `<span class="incoming-piece" style="flex-basis: ${p.width / WIDTH * 100}%">${p.height > 1 ? `×${p.height}` : ''}</span>`
+    ).join('');
+}
+
+// 対戦用の表示（相手のフィールド・予告）を出すか
+export function setVersusVisible(visible) {
+    for (const element of [opponentCanvas, opponentLabel, incomingElement]) {
+        element.style.display = visible ? '' : 'none';
+    }
+    if (!visible) hideVersusResult();
+    incomingKey = '';
+    incomingElement.innerHTML = '';
+}
+
+// 相手のフィールドを小さく描く。snapshot は相手から届いたフィールドの様子（game.js の getSnapshot）
+// info: { name, connected, wins }
+export function renderOpponent(snapshot, info) {
+    const size = opponentCanvas.width / WIDTH;
+    og.clearRect(0, 0, opponentCanvas.width, opponentCanvas.height);
+    if (snapshot) {
+        const raiseY = Math.floor(size * snapshot.raise);
+        for (let i = 0; i < WIDTH * HEIGHT; ++i) {
+            const c = snapshot.cells[i];
+            if (c === '.') continue;
+            drawMiniBlock(Number(c), (i % WIDTH) * size, Math.floor(i / WIDTH) * size - raiseY, size);
+        }
+        for (const [x, y, width, height, clearing] of snapshot.garbages) {
+            drawGarbageRect(og, size, x * size, y * size - raiseY, width, height, Boolean(clearing));
+        }
+        for (let x = 0; x < WIDTH; ++x) {
+            og.fillStyle = DARK_COLORS[Number(snapshot.next[x])];
+            og.fillRect(x * size, HEIGHT * size - raiseY, size, size);
+        }
+    }
+    const status = info.connected ? '' : '（切断中）';
+    opponentLabel.textContent = `${info.name}${status}`;
+}
+
+function drawMiniBlock(type, px, py, size) {
+    const edge = Math.max(1, size / 8);
+    og.fillStyle = COLORS[type];
+    og.fillRect(px, py, size, size);
+    og.fillStyle = LIGHT_COLORS[type];
+    og.fillRect(px, py, size, edge);
+    og.fillStyle = DARK_COLORS[type];
+    og.fillRect(px, py + size - edge, size, edge);
+}
+
+// 対戦の勝敗を表示する。title は 'WIN' など、score は勝ち数の表示
+export function showVersusResult(title, score) {
+    versusResultElement.querySelector('.versus-result-title').textContent = title;
+    versusResultElement.querySelector('.versus-result-score').textContent = score;
+    versusResultElement.style.visibility = 'visible';
+    canvas.style.filter = `blur(${BLOCK_SIZE / 4}px)`;
+}
+
+export function hideVersusResult() {
+    versusResultElement.style.visibility = 'hidden';
+    canvas.style.filter = 'blur(0px)';
 }
 
 // お邪魔ブロックのゲージ（ratio は 0〜1）

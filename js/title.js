@@ -3,12 +3,13 @@ import { SETTING_OPTIONS, loadSettings, saveSettings } from './settings.js';
 import { initSound } from './sound.js';
 
 let titleElement;
-let startCallback;
+let callbacks;
 let started = false;
 
-// タイトル画面を表示し、開始操作で onStart(settings) を呼ぶ（何度でも呼べる）
-export function showTitle(onStart) {
-    startCallback = onStart;
+// タイトル画面を表示する（何度でも呼べる）。
+// 「ひとりで遊ぶ」で onSolo(settings)、「オンライン対戦」で onOnline(settings) を呼ぶ
+export function showTitle({ onSolo, onOnline }) {
+    callbacks = { solo: onSolo, online: onOnline };
     started = false;
     const settings = loadSettings();
 
@@ -36,7 +37,10 @@ export function showTitle(onStart) {
             <h1 class="title-text">PANEL DE PON</h1>
             <div class="title-blocks">${blocks}</div>
             <div class="settings">${settingGroups}</div>
-            <button type="button" class="start-button">スタート</button>
+            <div class="start-buttons">
+                <button type="button" class="start-button" data-mode="solo">ひとりで遊ぶ</button>
+                <button type="button" class="start-button online" data-mode="online">オンライン対戦</button>
+            </div>
             <div class="controls">
                 <div class="control-section">
                     <h3>操作方法</h3>
@@ -49,7 +53,9 @@ export function showTitle(onStart) {
     `;
     document.body.appendChild(titleElement);
 
-    titleElement.querySelector('.start-button').addEventListener('click', startGame);
+    for (const button of titleElement.querySelectorAll('.start-button')) {
+        button.addEventListener('click', () => start(button.dataset.mode));
+    }
 }
 
 function readSettings() {
@@ -60,7 +66,8 @@ function readSettings() {
     return settings;
 }
 
-function startGame() {
+// mode は 'solo'（ひとりで遊ぶ） | 'online'（オンライン対戦）
+function start(mode) {
     // フェードアウト中に再び押されても二重に開始しない
     if (started) return;
     started = true;
@@ -74,6 +81,6 @@ function startGame() {
     element.style.opacity = '0';
     setTimeout(() => {
         element.remove();
-        startCallback(settings);
+        callbacks[mode](settings);
     }, 500);
 }

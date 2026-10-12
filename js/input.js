@@ -76,7 +76,7 @@ function onFieldPointerUp(ev) {
 function onOutsidePointerDown(ev) {
     if (!isPrimary(ev) || raisePointerId !== null) return;
     // フィールド上や、ボタン・タイトル画面などの操作は対象外
-    if (ev.target === canvas || ev.target.closest?.('button, input, label, #title-screen')) return;
+    if (ev.target === canvas || ev.target.closest?.('button, input, label, #title-screen, #online-screen')) return;
     if (performance.now() - lastTapTime < DOUBLE_TAP_MS) {
         lastTapTime = -Infinity;
         state.flatten = true;
