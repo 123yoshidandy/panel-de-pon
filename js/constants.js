@@ -14,7 +14,6 @@ export const HANG = 10; // お邪魔ブロックから変化した直後の静�
 // ブロックの種類
 export const EMPTY = -1; // 空きマス
 export const GARBAGE = -2; // お邪魔ブロック
-export const COLOR_COUNT = 6;
 
 // 寸法
 export const WIDTH = 6;
@@ -63,11 +62,11 @@ export const SHAKE_FRAME = 16; // 平滑化でフィールドが揺れるフレ�
 // ゲームループ
 export const FRAME_MS = 16; // 1フレームの長さ（ミリ秒）
 
-// 見た目情報
-export const RELIEF = ['♥', '●', '▼', '◆', '★', '▲'];
-export const LIGHT_COLORS = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)', 'rgb(128,0,128)', 'rgb(255,255,0)', 'rgb(0,255,255)'];
-export const COLORS = ['rgb(192,0,0)', 'rgb(0,192,0)', 'rgb(0,0,192)', 'rgb(96,0,96)', 'rgb(192,192,0)', 'rgb(0,192,192)'];
-export const DARK_COLORS = ['rgb(128,0,0)', 'rgb(0,128,0)', 'rgb(0,0,128)', 'rgb(64,0,64)', 'rgb(128,128,0)', 'rgb(0,128,128)'];
+// 見た目情報（最後の色（青）は難易度「むずかしい」でだけ使う）
+export const RELIEF = ['♥', '●', '◆', '★', '▲', '▼'];
+export const LIGHT_COLORS = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(128,0,128)', 'rgb(255,255,0)', 'rgb(0,255,255)', 'rgb(0,0,255)'];
+export const COLORS = ['rgb(192,0,0)', 'rgb(0,192,0)', 'rgb(96,0,96)', 'rgb(192,192,0)', 'rgb(0,192,192)', 'rgb(0,0,192)'];
+export const DARK_COLORS = ['rgb(128,0,0)', 'rgb(0,128,0)', 'rgb(64,0,64)', 'rgb(128,128,0)', 'rgb(0,128,128)', 'rgb(0,0,128)'];
 export const GARBAGE_COLOR = 'rgb(112,112,144)';
 export const GARBAGE_LIGHT_COLOR = 'rgb(176,176,208)';
 export const GARBAGE_DARK_COLOR = 'rgb(64,64,88)';

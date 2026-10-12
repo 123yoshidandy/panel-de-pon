@@ -1,5 +1,5 @@
 import {
-    WIDTH, HEIGHT, NUM, BLOCK_SIZE, EMPTY, GARBAGE, COLOR_COUNT,
+    WIDTH, HEIGHT, NUM, BLOCK_SIZE, EMPTY, GARBAGE,
     NEUTRAL, EXTINCT, VANISH, FALLING, MOVEDOWN,
     SWAPPING_L, SWAPPING_R, SWAPPED, LEVITATE, CHECK_FLOOR, HANG,
     FALL_FRAME, VANISH_FRAME, VANISH_DELAY_FRAME, MIN_RAISE_TIME, RAISE_BOOST,
@@ -21,6 +21,7 @@ export const gameState = {
     counter: 0,
     raiseCount: 0,
     raiseTime: getChoice(DEFAULT_SETTINGS, 'difficulty').raiseTime,
+    colorCount: getChoice(DEFAULT_SETTINGS, 'difficulty').colorCount, // ブロックの色数
     blocks: [],
     next: [],
     garbages: [], // お邪魔ブロック { x, y（一番上の段）, width, height, falling, clearing, count }
@@ -57,7 +58,7 @@ function genNext() {
             exclude = EMPTY;
         }
         do {
-            gameState.next[x] = Math.floor(gameState.random() * (exclude < 0 ? COLOR_COUNT : COLOR_COUNT - 1));
+            gameState.next[x] = Math.floor(gameState.random() * (exclude < 0 ? gameState.colorCount : gameState.colorCount - 1));
             if (gameState.next[x] >= exclude && exclude >= 0) gameState.next[x]++;
         } while (x && gameState.next[x - 1] === gameState.next[x]);
     }
@@ -67,6 +68,7 @@ function genNext() {
 export function resetGame(settings = gameState.settings, { mode = 'solo', seed } = {}) {
     gameState.settings = settings;
     gameState.mode = mode;
+    gameState.colorCount = getChoice(settings, 'difficulty').colorCount;
     gameState.random = seed === undefined ? Math.random : createRandom(seed);
     gameState.miscRandom = seed === undefined ? Math.random : createRandom(seed ^ 0x9E3779B9);
     gameState.blocks = Array.from({ length: NUM }, () => new Block());
@@ -77,7 +79,7 @@ export function resetGame(settings = gameState.settings, { mode = 'solo', seed }
         for (let y = HEIGHT >> 1; y < HEIGHT; ++y) {
             let color;
             do {
-                color = Math.floor(gameState.random() * COLOR_COUNT);
+                color = Math.floor(gameState.random() * gameState.colorCount);
             } while ((x >= 2 && color === blockAt(x - 1, y).type && color === blockAt(x - 2, y).type) ||
                 (y >= 2 && color === blockAt(x, y - 1).type && color === blockAt(x, y - 2).type));
             blockAt(x, y).type = color;
@@ -333,7 +335,7 @@ function startClearingGarbage(garbage) {
 // 変化したブロックはしばらく静止してから落下する
 function convertGarbage(garbage) {
     for (const b of garbageRow(garbage, garbage.height - 1)) {
-        b.type = Math.floor(gameState.miscRandom() * COLOR_COUNT);
+        b.type = Math.floor(gameState.miscRandom() * gameState.colorCount);
         b.garbage = null;
         b.chain = true; // 変化したブロックが消えれば連鎖になる
         b.setState(HANG);

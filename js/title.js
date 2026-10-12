@@ -13,7 +13,8 @@ export function showTitle({ onSolo, onOnline }) {
     started = false;
     const settings = loadSettings();
 
-    const blocks = RELIEF.map((relief, i) =>
+    // 青（最後の色）は「むずかしい」だけで出るので、タイトルには並べない
+    const blocks = RELIEF.slice(0, -1).map((relief, i) =>
         `<span class="title-block" style="color: ${LIGHT_COLORS[i]}; --i: ${i}">${relief}</span>`
     ).join('');
 
