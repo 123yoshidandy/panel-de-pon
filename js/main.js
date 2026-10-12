@@ -7,7 +7,7 @@ import { doLayout } from './layout.js';
 import { resetGame, updateGame, gameState, receiveGarbage, getSnapshot } from './game.js';
 import { showTitle } from './title.js';
 import { showOnlineEntry, showLobby, setOnlineMessage, hideOnline } from './lobby.js';
-import { OnlineClient } from './online.js';
+import NetplayClient from './netplay/netplay-client.mjs';
 import { getServerUrl } from './online-config.js';
 import { playEventSounds, playSound, setSoundEnabled, setBgmEnabled, startBgm, stopBgm } from './sound.js';
 import { FRAME_MS, SNAPSHOT_INTERVAL } from './constants.js';
@@ -26,9 +26,13 @@ let pendingTime = 0;
 let settings = null; // タイトル画面で選んだ設定
 
 // オンライン対戦
-let client = null;
-let lobby = null; // 最後に届いた部屋の状態
-let seat = 0; // 自分の席
+let net = null; // サーバーとの通信（NetplayClient）
+let lobby = null; // 最後に届いた部屋の状態（lobby.seat が自分の席）
+let matchId = null; // 遊んでいる（遊んだ）対戦の番号
+let resumedMatchId = null; // つなぎ直したときに進んでいた対戦の番号（途中から始めない）
+let resuming = false; // 参加した直後で、まだ部屋の状態が届いていない
+let winsById = {}; // 参加者の id ごとの通算の勝ち数
+let lastError = ''; // 勝敗の画面に出すエラー
 let countdown = 0; // 対戦開始までの残りフレーム数
 let opponentSnapshot = null; // 相手から届いたフィールドの様子
 let resultTitle = null; // 表示中の勝敗（'WIN' など）
@@ -39,7 +43,7 @@ let resultTitle = null; // 表示中の勝敗（'WIN' など）
 function ensureSetup() {
     if (initialized) return;
     initialized = true;
-    const canvas = initRenderer({ onRestart: restart, onBackToTitle: backToTitle, onBackToRoom: backToRoom });
+    const canvas = initRenderer({ onRestart: restart, onBackToTitle: backToTitle, onRematch: rematch, onBackToRoom: backToRoom });
     doLayout('solo');
     window.addEventListener('resize', () => doLayout());
     initInput(canvas);
@@ -139,30 +143,33 @@ function openOnline(selected) {
     ensureSetup();
     scene = 'online';
     showOnlineEntry({
-        onCreate: (name) => connectAnd(() => client.createRoom(name)),
-        onJoin: (roomCode, name) => connectAnd(() => client.joinRoom(roomCode, name)),
+        onCreate: (name) => connectAnd(() => net.createRoom(name)),
+        onJoin: (roomCode, name) => connectAnd(() => net.joinRoom(roomCode, name)),
         onBack: leaveOnline
     });
-    const url = getServerUrl();
-    if (!url) {
+    const serverUrl = getServerUrl();
+    if (!serverUrl) {
         setOnlineMessage('オンライン対戦のサーバーが準備中です');
         return;
     }
-    client ??= new OnlineClient(url, {
-        onJoined: (session) => { seat = session.seat; },
-        onLobby: receiveLobby,
-        onStart: (start) => startVersus(start.seed),
-        onRelay: receiveRelay,
-        onResult: receiveResult,
-        onError: (message) => setOnlineMessage(message),
-        onConnectionChange: (connected) => {
-            if (!connected && scene === 'online') setOnlineMessage('接続が切れました。つなぎ直しています…');
-        }
+    if (net) return;
+    net = new NetplayClient({ serverUrl, storageKey: 'panel-de-pon.online' });
+    net.on('joined', () => { resuming = true; });
+    net.on('lobby', receiveLobby);
+    net.on('state', receiveState);
+    net.on('relay', receiveRelay);
+    net.on('error', ({ message }) => {
+        lastError = message;
+        if (scene === 'online') setOnlineMessage(message);
+        if (scene === 'versus-end') updateResult();
+    });
+    net.on('connection', (connected) => {
+        if (!connected && scene === 'online') setOnlineMessage('接続が切れました。つなぎ直しています…');
     });
 }
 
 async function connectAnd(action) {
-    if (!client) return;
+    if (!net) return;
     setOnlineMessage('接続しています…');
     try {
         await action();
@@ -173,9 +180,11 @@ async function connectAnd(action) {
 
 // 部屋を出てタイトルへ戻る
 function leaveOnline() {
-    client?.leave();
-    client = null;
+    net?.leave();
+    net = null;
     lobby = null;
+    matchId = null;
+    winsById = {};
     hideOnline();
     setVersusVisible(false);
     stopBgm();
@@ -185,34 +194,66 @@ function leaveOnline() {
 function showRoom() {
     showLobby({
         lobby,
-        seat,
-        onStart: () => client.startMatch(),
+        isHost: net.isHost(),
+        winsOf: (id) => winsById[id] ?? 0,
+        onStart: () => net.start(),
         onLeave: leaveOnline,
-        onAbort: () => client.abort()
+        onAbort: () => net.send('abort'),
+        onBackToLobby: () => net.backToLobby()
     });
 }
 
 function receiveLobby(received) {
     lobby = received;
+    // つなぎ直したとき、すでに進んでいた対戦は途中から始めない（届く state で盤面を作り直さない）
+    if (resuming) {
+        resuming = false;
+        resumedMatchId = lobby.status === 'lobby' || lobby.matchId === matchId ? null : lobby.matchId;
+    }
     if (scene === 'online') showRoom();
-    if (scene === 'versus-end' && resultTitle) showVersusResult(resultTitle, scoreText());
+    if (scene === 'versus-end' || scene === 'versus') {
+        // 相手が「部屋に戻る」を押した
+        if (lobby.status === 'lobby') {
+            enterRoom();
+        } else if (scene === 'versus-end') {
+            updateResult();
+        }
+    }
 }
+
+// 自分のビュー（対戦の開始・勝敗）が届いた
+function receiveState({ matchId: id, view }) {
+    view.ids.forEach((playerId, i) => { winsById[playerId] = view.wins[i]; });
+    if (lobby?.status === 'playing' && view.loser === null && id !== matchId && id !== resumedMatchId) {
+        startVersus(id, view.seed);
+    } else if (lobby?.status === 'ended' && id === matchId && (scene === 'versus' || scene === 'versus-end')) {
+        receiveResult(view.loser);
+    } else if (scene === 'online' && lobby) {
+        showRoom();
+    }
+}
+
+const mySeat = () => lobby?.seat ?? 0;
+const opponent = () => lobby?.players.find(player => player.seat !== mySeat()) ?? null;
 
 // 相手の名前と接続状況
 function opponentInfo() {
-    const opponent = lobby?.players[1 - seat];
-    return { name: opponent?.name ?? '', connected: opponent?.connected ?? false };
+    const player = opponent();
+    return { name: player?.name ?? '', connected: Boolean(player?.connected) };
 }
 
 function scoreText() {
-    const me = lobby?.players[seat];
-    const opponent = lobby?.players[1 - seat];
-    return me && opponent ? `${me.wins} - ${opponent.wins}` : '';
+    const me = lobby?.players[mySeat()];
+    const other = opponent();
+    return me && other ? `${winsById[me.id] ?? 0} - ${winsById[other.id] ?? 0}` : '';
 }
 
-function startVersus(seed) {
+function startVersus(id, seed) {
+    matchId = id;
+    lastError = '';
     hideOnline();
     hideGameOver();
+    hideVersusResult();
     setVersusVisible(true);
     doLayout('versus');
     resetGame(settings, { mode: 'versus', seed });
@@ -235,44 +276,81 @@ function stepVersus() {
     const gameOver = updateGame(pollInput());
     playEventSounds(gameState.events);
     for (const event of gameState.events) {
-        if (event.type === 'attack') client?.relay('attack', event.pieces);
+        if (event.type === 'attack') net?.send('relay', { kind: 'attack', data: event.pieces });
     }
     if (gameOver || gameState.counter % SNAPSHOT_INTERVAL === 0) {
-        client?.relay('snapshot', getSnapshot());
+        net?.send('relay', { kind: 'snapshot', data: getSnapshot() });
     }
     if (gameOver) {
         // 負けをサーバーに伝え、結果が届くのを待つ
         scene = 'versus-end';
         stopBgm(1);
         playSound('gameover');
-        client?.lose();
+        net?.send('lose');
     }
 }
 
-function receiveRelay(kind, data) {
+function receiveRelay({ kind, data }) {
     if (scene !== 'versus' && scene !== 'versus-end') return;
     if (kind === 'attack' && scene === 'versus' && Array.isArray(data)) receiveGarbage(data);
     if (kind === 'snapshot') opponentSnapshot = data;
 }
 
-function receiveResult(result) {
-    if (scene !== 'versus' && scene !== 'versus-end') return;
+function receiveResult(loser) {
+    if (resultTitle) return; // 表示済み（つなぎ直したときなどに、もう一度届く）
     if (scene === 'versus') {
         // 相手が先にゲームオーバーになった（または部屋を出た）
         scene = 'versus-end';
         stopBgm(1);
     }
-    resultTitle = result.winner === null ? '中止' : result.winner === seat ? 'WIN' : 'LOSE';
+    resultTitle = loser === null ? '中止' : loser === mySeat() ? 'LOSE' : 'WIN';
     if (resultTitle === 'WIN') playSound('chain', 1.5);
-    showVersusResult(resultTitle, scoreText());
+    updateResult();
 }
 
-// 勝敗の表示から部屋の画面へ戻る
+// 勝敗の画面を、相手の「もう1回」の状況にあわせて表示し直す
+function updateResult() {
+    if (!resultTitle) return;
+    const me = lobby?.players[mySeat()];
+    const other = opponent();
+    let note = '';
+    let canRematch = true;
+    if (!other || other.left) {
+        note = '相手が部屋を出ました';
+        canRematch = false;
+    } else if (!other.connected) {
+        note = '相手の接続が切れています';
+    } else if (me?.ready) {
+        note = '相手を待っています';
+        canRematch = false;
+    } else if (other.ready) {
+        note = '相手が「もう1回」を押しました';
+    } else if (lastError) {
+        note = lastError;
+    }
+    showVersusResult(resultTitle, scoreText(), { note, canRematch });
+}
+
+// 「もう1回」。2人とも押したら次の対戦が始まる
+function rematch() {
+    if (scene !== 'versus-end' || !resultTitle) return;
+    lastError = '';
+    net?.ready();
+}
+
+// 勝敗の表示から部屋の画面へ戻る（相手も部屋に戻る）
 function backToRoom() {
     if (scene !== 'versus-end' || !resultTitle) return;
+    net?.backToLobby();
+    enterRoom();
+}
+
+function enterRoom() {
     hideVersusResult();
     setVersusVisible(false);
+    stopBgm();
     scene = 'online';
+    resultTitle = null;
     if (lobby) showRoom();
 }
 

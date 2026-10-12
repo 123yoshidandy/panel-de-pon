@@ -20,7 +20,7 @@
 1. タイトル画面で「オンライン対戦」を押し、名前を入れて「部屋を作る」を押す
 2. 「招待URLを送る」で友人にURLを送る（友人は開いて「オンライン対戦」→「参加する」を押す。部屋番号（数字5桁）でも参加できる）
 3. 部屋を作った人が「対戦スタート」を押す
-4. 勝敗がついたら「部屋に戻る」で、同じ相手と続けて遊べる
+4. 勝敗がついたら、2人とも「もう1回」を押すと次の対戦が始まる。「部屋に戻る」で部屋の画面に戻る
 
 ## 開発
 
@@ -41,7 +41,7 @@ npm test
 AWS を使わずに、同じ処理のテスト用サーバーを手元で動かせます。画面を `localhost` で開くと、自動でこのサーバーにつながります。ブラウザのタブを2つ開けば、ひとりで対戦を試せます。
 
 ```bash
-npm run dev:server   # ws://localhost:8787
+npm run dev:server   # ws://localhost:8787（PORT=8797 のように環境変数でポートを変えられる）
 ```
 
 URLに `?server=wss://...` を付けると、接続先のサーバーを変えられます。
@@ -54,14 +54,14 @@ js/
   game.js          ゲームの進行（DOMに依存しない。対戦用のルールも含む）
   Block.js constants.js settings.js random.js
   renderer.js layout.js input.js sound.js title.js
-  online.js        オンライン対戦のサーバーとの通信
+  netplay/         サーバーとの通信（netplay-kit からコピーしたもの。ここでは直さない）
   online-config.js 接続先のサーバーの URL
   lobby.js         オンライン対戦の画面（部屋の作成・参加）
   main.js          画面の切り替えとゲームループ
 server/            オンライン対戦のサーバー
-  src/room-service.js  部屋の処理（作成・参加・開始・中継・勝敗）
+  netplay/             部屋の処理・Lambda の入口・保存（netplay-kit からコピーしたもの。ここでは直さない）
+  src/game-definition.js  対戦の中身（シードの配布・中継・勝敗・勝ち数）
   src/handler.js       Lambda の入口
-  src/dynamo-store.js  DynamoDB への保存
   dev-server.js        手元で試すためのテスト用サーバー
   template.yaml        AWS SAM のテンプレート
 test/              テスト（Vitest）
@@ -69,6 +69,7 @@ test/              テスト（Vitest）
 
 ### オンライン対戦のしくみ
 
+- 部屋の仕組み（作成・参加・再接続・開始・再戦）は、ほかのゲームと共通の netplay-kit を使う。`server/netplay/`・`js/netplay/`・`netplay-kit.lock.json` は netplay-kit の `scripts/sync.mjs` でコピーしたもので、直すときは netplay-kit で直して同期し直す
 - ゲームはそれぞれの端末で進め、サーバーは部屋の管理と、相手へのメッセージの中継だけを行う
 - 中継するのは、攻撃（送るお邪魔ブロック）と、相手の画面に表示する自分のフィールドの様子（約0.2秒ごと）
 - 対戦の開始時に2人に同じシードを配り、ブロックの並びをそろえる

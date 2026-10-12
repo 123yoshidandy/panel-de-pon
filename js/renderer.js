@@ -25,8 +25,8 @@ export let versusResultElement;
 let og;
 let incomingKey = '';
 
-// 描画の初期化。onRestart・onBackToTitle はゲームオーバー画面、onBackToRoom は対戦の勝敗画面のボタンで呼ばれる
-export function initRenderer({ onRestart, onBackToTitle, onBackToRoom }) {
+// 描画の初期化。onRestart・onBackToTitle はゲームオーバー画面、onRematch・onBackToRoom は対戦の勝敗画面のボタンで呼ばれる
+export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom }) {
     canvas = document.createElement('canvas');
     canvas.classList.add('field');
     g = canvas.getContext('2d');
@@ -45,9 +45,12 @@ export function initRenderer({ onRestart, onBackToTitle, onBackToRoom }) {
         <div class="versus-result-title"></div>
         <div class="game-over-score versus-result-score"></div>
         <div class="game-over-buttons">
+            <button type="button" class="game-over-button" data-action="rematch">もう1回</button>
             <button type="button" class="game-over-button" data-action="room">部屋に戻る</button>
         </div>
+        <div class="versus-result-note"></div>
     `;
+    versusResultElement.querySelector('[data-action="rematch"]').addEventListener('click', () => onRematch());
     versusResultElement.querySelector('[data-action="room"]').addEventListener('click', () => onBackToRoom());
     document.body.append(opponentCanvas, opponentLabel, incomingElement, versusResultElement);
     setVersusVisible(false);
@@ -266,10 +269,13 @@ function drawMiniBlock(type, px, py, size) {
     og.fillRect(px, py + size - edge, size, edge);
 }
 
-// 対戦の勝敗を表示する。title は 'WIN' など、score は勝ち数の表示
-export function showVersusResult(title, score) {
+// 対戦の勝敗を表示する。title は 'WIN' など、score は勝ち数の表示、note は「相手を待っています」などの一言。
+// canRematch が false なら「もう1回」を押せなくする（押したあと・相手が部屋を出たあと）
+export function showVersusResult(title, score, { note = '', canRematch = true } = {}) {
     versusResultElement.querySelector('.versus-result-title').textContent = title;
     versusResultElement.querySelector('.versus-result-score').textContent = score;
+    versusResultElement.querySelector('.versus-result-note').textContent = note;
+    versusResultElement.querySelector('[data-action="rematch"]').disabled = !canRematch;
     versusResultElement.style.visibility = 'visible';
     canvas.style.filter = `blur(${BLOCK_SIZE / 4}px)`;
 }

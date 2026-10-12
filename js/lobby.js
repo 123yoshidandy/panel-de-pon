@@ -83,11 +83,11 @@ export function showOnlineEntry({ onCreate, onJoin, onBack }) {
     });
 }
 
-// 部屋の画面。lobby はサーバーから届いた部屋の状態、seat は自分の席
-// onStart() / onLeave() / onAbort()
-export function showLobby({ lobby, seat, onStart, onLeave, onAbort }) {
+// 部屋の画面。lobby はサーバーから届いた部屋の状態（seat は自分の席）、isHost は部屋を作った人（の役）か、
+// winsOf(playerId) は通算の勝ち数。onStart() / onLeave() / onAbort() / onBackToLobby()
+export function showLobby({ lobby, isHost, winsOf, onStart, onLeave, onAbort, onBackToLobby }) {
     const element = ensureScreen();
-    const isHost = seat === 0;
+    const seat = lobby.seat;
     const players = [0, 1].map(i => lobby.players[i]);
     const ready = players.every(player => player?.connected);
 
@@ -96,6 +96,9 @@ export function showLobby({ lobby, seat, onStart, onLeave, onAbort }) {
     if (lobby.status === 'playing') {
         guide = '対戦中です';
         action = '<button type="button" class="online-button" data-action="abort">対戦をやめる</button>';
+    } else if (lobby.status === 'ended') {
+        guide = '対戦が終わりました';
+        action = '<button type="button" class="online-button" data-action="lobby">部屋に戻る</button>';
     } else if (!players[1]) {
         guide = '招待URLか部屋番号を相手に伝えてください';
     } else if (!ready) {
@@ -109,10 +112,11 @@ export function showLobby({ lobby, seat, onStart, onLeave, onAbort }) {
 
     const slot = (player, i) => {
         if (!player) return '<li class="lobby-player empty">（あき）</li>';
-        const notes = [i === seat ? 'あなた' : '', player.connected ? '' : '切断中'].filter(Boolean).join('・');
+        const status = player.left ? '退出' : player.connected ? '' : '切断中';
+        const notes = [i === seat ? 'あなた' : '', status].filter(Boolean).join('・');
         return `<li class="lobby-player">
             <span class="lobby-name">${escapeHtml(player.name)}</span>
-            <span class="lobby-wins">${player.wins}勝</span>
+            <span class="lobby-wins">${winsOf(player.id)}勝</span>
             ${notes ? `<span class="lobby-note">${notes}</span>` : ''}
         </li>`;
     };
@@ -132,7 +136,8 @@ export function showLobby({ lobby, seat, onStart, onLeave, onAbort }) {
         invite: () => shareInvite(lobby.roomCode),
         start: onStart,
         leave: onLeave,
-        abort: onAbort
+        abort: onAbort,
+        lobby: onBackToLobby
     });
 }
 
