@@ -346,14 +346,14 @@ function updateResult() {
         note = '相手を待っています';
         canRematch = false;
     } else if (other.ready) {
-        note = '相手が「もう1回」を押しました';
+        note = '相手が再戦を希望しています';
     } else if (lastError) {
         note = lastError;
     }
     showVersusResult(resultTitle, scoreText(), { note, canRematch });
 }
 
-// 「もう1回」。2人とも押したら次の対戦が始まる
+// 「再戦」。2人とも押したら次の対戦が始まる
 function rematch() {
     if (scene !== 'versus-end' || !resultTitle) return;
     lastError = '';

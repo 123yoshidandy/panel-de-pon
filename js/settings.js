@@ -5,25 +5,25 @@ export const SETTING_OPTIONS = [
         label: '難易度',
         // raiseTime: せり上がりの速さ（1段にかかるフレーム数）、gaugeRate: お邪魔ゲージの溜まる速さ、colorCount: ブロックの色数
         choices: [
-            { value: 'practice', label: 'れんしゅう', raiseTime: 900, gaugeRate: 0, colorCount: 5 }, // お邪魔ブロックが降らない
-            { value: 'normal', label: 'ふつう', raiseTime: 600, gaugeRate: 1, colorCount: 5 },
-            { value: 'hard', label: 'むずかしい', raiseTime: 360, gaugeRate: 1.5, colorCount: 6 }
+            { value: 'practice', label: '練習', raiseTime: 900, gaugeRate: 0, colorCount: 5 }, // お邪魔ブロックが降らない
+            { value: 'normal', label: 'ノーマル', raiseTime: 600, gaugeRate: 1, colorCount: 5 },
+            { value: 'hard', label: 'ハード', raiseTime: 360, gaugeRate: 1.5, colorCount: 6 }
         ]
     },
     {
         key: 'sound',
         label: '効果音',
         choices: [
-            { value: 'on', label: 'あり' },
-            { value: 'off', label: 'なし' }
+            { value: 'on', label: 'ON' },
+            { value: 'off', label: 'OFF' }
         ]
     },
     {
         key: 'bgm',
         label: 'BGM',
         choices: [
-            { value: 'on', label: 'あり' },
-            { value: 'off', label: 'なし' }
+            { value: 'on', label: 'ON' },
+            { value: 'off', label: 'OFF' }
         ]
     }
 ];

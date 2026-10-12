@@ -107,11 +107,11 @@ export function showLobby({ lobby, isHost, winsOf, onStart, onLeave, onAbort, on
         guide = '';
         action = '<button type="button" class="start-button" data-action="start">対戦スタート</button>';
     } else {
-        guide = '部屋を作った人の開始を待っています';
+        guide = 'ホストの開始を待っています';
     }
 
     const slot = (player, i) => {
-        if (!player) return '<li class="lobby-player empty">（あき）</li>';
+        if (!player) return '<li class="lobby-player empty">空き</li>';
         const status = player.left ? '退出' : player.connected ? '' : '切断中';
         const notes = [i === seat ? 'あなた' : '', status].filter(Boolean).join('・');
         return `<li class="lobby-player">
@@ -146,7 +146,7 @@ async function shareInvite(roomCode) {
     const url = `${location.origin}${location.pathname}?room=${roomCode}`;
     try {
         if (navigator.share) {
-            await navigator.share({ title: 'PANEL DE PON で対戦しよう', url });
+            await navigator.share({ title: 'パネルでポン 対戦の招待', url });
         } else {
             await navigator.clipboard.writeText(url);
             setOnlineMessage('招待URLをコピーしました');

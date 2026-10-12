@@ -36,17 +36,17 @@ export function showTitle({ onSolo, onOnline }) {
             <h1 class="title-text">パネルでポン</h1>
             <figure class="title-illustration">
                 <canvas aria-label="パネルを指で横に動かし、同じ色を3つそろえて消すところ"></canvas>
-                <figcaption>横に動かして、同じ色を3つそろえよう</figcaption>
+                <figcaption>同じ色を縦か横に3つ以上並べると消える</figcaption>
             </figure>
             <div class="settings">${settingGroups}</div>
             <div class="start-buttons">
-                <button type="button" class="start-button" data-mode="solo">ひとりで遊ぶ</button>
+                <button type="button" class="start-button" data-mode="solo">1人プレイ</button>
                 <button type="button" class="start-button online" data-mode="online">オンライン対戦</button>
             </div>
             <dl class="controls">
-                <dt>パネルを左右にドラッグ</dt><dd>動かす</dd>
-                <dt>フィールドの外を長押し</dt><dd>せり上げ</dd>
-                <dt>フィールドの外をダブルタップ</dt><dd>ならす</dd>
+                <dt>パネルを左右にドラッグ</dt><dd>移動</dd>
+                <dt>フィールド外を長押し</dt><dd>せり上げ</dd>
+                <dt>フィールド外をダブルタップ</dt><dd>段差をならす</dd>
             </dl>
         </div>
     `;

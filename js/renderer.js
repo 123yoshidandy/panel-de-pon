@@ -48,7 +48,7 @@ export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom
             <div class="versus-result-title"></div>
             <div class="message-score versus-result-score"></div>
             <div class="message-buttons">
-                <button type="button" class="message-button primary" data-action="rematch">もう1回</button>
+                <button type="button" class="message-button primary" data-action="rematch">再戦</button>
                 <button type="button" class="message-button" data-action="room">部屋に戻る</button>
             </div>
             <div class="versus-result-note"></div>
@@ -72,10 +72,10 @@ export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom
     gameOverElement.innerHTML = `
         <div class="message-card">
             <div class="game-over-title">GAME OVER</div>
-            <div class="message-score">がんばった時間 <span class="game-over-time"></span> 秒</div>
+            <div class="message-score">タイム <span class="game-over-time"></span>秒</div>
             <div class="message-score">最大連鎖 <span class="game-over-chain"></span></div>
             <div class="message-buttons">
-                <button type="button" class="message-button primary" data-action="restart">もう一度</button>
+                <button type="button" class="message-button primary" data-action="restart">リトライ</button>
                 <button type="button" class="message-button" data-action="title">タイトルへ</button>
             </div>
         </div>

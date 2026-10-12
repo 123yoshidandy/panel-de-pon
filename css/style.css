@@ -2,9 +2,10 @@
     --font: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif;
     --ink: #5a4a78;
     --ink-soft: #8d7fae;
-    --pink: #ff6f91;
-    --pink-deep: #e04a76;
-    --sky: #3fa9f5;
+    --accent: #3b2d9a; /* 主なボタン・選択中の設定 */
+    --accent-deep: #1f165c;
+    --accent2: #7a5ce0; /* オンライン対戦などのボタン */
+    --accent2-deep: #5a3fc0;
     --card: rgba(255, 255, 255, 0.96);
     --line: rgba(255, 255, 255, 0.9);
 }
@@ -89,7 +90,7 @@ button {
 }
 
 .garbage-gauge.warning .garbage-gauge-fill {
-    background: linear-gradient(90deg, #ff9fb8, var(--pink));
+    background: linear-gradient(90deg, #ff9fb8, var(--accent));
 }
 
 .garbage-gauge.full .garbage-gauge-fill {
@@ -143,7 +144,7 @@ button {
     font-size: 1.3em;
     font-weight: 800;
     letter-spacing: 0.05em;
-    color: var(--pink);
+    color: var(--accent);
 }
 
 .message[data-result='WIN'] .versus-result-title {
@@ -152,7 +153,7 @@ button {
 }
 
 .message[data-result='LOSE'] .versus-result-title {
-    color: var(--sky);
+    color: var(--accent2);
 }
 
 .message-score {
@@ -191,8 +192,8 @@ button {
 
 .message-button.primary {
     color: #fff;
-    background: var(--pink);
-    box-shadow: 0 0.2em 0 var(--pink-deep);
+    background: var(--accent);
+    box-shadow: 0 0.2em 0 var(--accent-deep);
 }
 
 .message-button:active {
@@ -318,12 +319,12 @@ button {
 
 .setting input:checked + span {
     color: #fff;
-    background: var(--pink);
-    box-shadow: 0 2px 0 var(--pink-deep);
+    background: var(--accent);
+    box-shadow: 0 2px 0 var(--accent-deep);
 }
 
 .setting input:focus-visible + span {
-    outline: 2px solid var(--sky);
+    outline: 2px solid var(--accent2);
 }
 
 .start-buttons {
@@ -340,25 +341,25 @@ button {
     font-size: 20px;
     font-weight: 800;
     color: #fff;
-    background: var(--pink);
+    background: var(--accent);
     border: none;
     border-radius: 999px;
-    box-shadow: 0 5px 0 var(--pink-deep);
+    box-shadow: 0 5px 0 var(--accent-deep);
     cursor: pointer;
 }
 
 .start-button.online {
-    background: var(--sky);
-    box-shadow: 0 5px 0 #2484cf;
+    background: var(--accent2);
+    box-shadow: 0 5px 0 var(--accent2-deep);
 }
 
 .start-button:active {
     transform: translateY(4px);
-    box-shadow: 0 1px 0 var(--pink-deep);
+    box-shadow: 0 1px 0 var(--accent-deep);
 }
 
 .start-button.online:active {
-    box-shadow: 0 1px 0 #2484cf;
+    box-shadow: 0 1px 0 var(--accent2-deep);
 }
 
 /* 操作方法 */
@@ -394,7 +395,7 @@ button {
     margin: 0 0 6px;
     font-size: 24px;
     font-weight: 800;
-    color: var(--pink);
+    color: var(--accent);
 }
 
 .online-field {
@@ -423,7 +424,7 @@ button {
 }
 
 .online-field input:focus {
-    border-color: var(--sky);
+    border-color: var(--accent2);
 }
 
 .online-button {
@@ -432,16 +433,16 @@ button {
     font-size: 17px;
     font-weight: 800;
     color: #fff;
-    background: var(--sky);
+    background: var(--accent2);
     border: none;
     border-radius: 999px;
-    box-shadow: 0 4px 0 #2484cf;
+    box-shadow: 0 4px 0 var(--accent2-deep);
     cursor: pointer;
 }
 
 .online-button:active {
     transform: translateY(3px);
-    box-shadow: 0 1px 0 #2484cf;
+    box-shadow: 0 1px 0 var(--accent2-deep);
 }
 
 .online-or,
@@ -456,7 +457,7 @@ button {
     margin: 0;
     font-size: 13px;
     font-weight: 700;
-    color: var(--pink-deep);
+    color: var(--accent-deep);
 }
 
 .online-link {
@@ -503,7 +504,7 @@ button {
     margin-left: auto;
     font-size: 14px;
     font-weight: 800;
-    color: var(--pink);
+    color: var(--accent);
 }
 
 .lobby-note {
