@@ -106,6 +106,21 @@ describe('ゲームの進行', () => {
         expect(bottomRows(2)).toEqual(['......', '10....']);
     });
 
+    it('落ちているパネルは、埋まったマスに重ならずに着地する', () => {
+        for (const rows of [['0.....', '......', '......', '1.....'], ['0.....', '2.....', '......', '......', '1.....']]) {
+            start(rows);
+            for (let i = 0; i < 80; ++i) {
+                updateGame(NO_INPUT);
+                gameState.grid.forEach((row, y) => row.forEach((item, x) => {
+                    if (item?.phase !== 'fall' || item.t === 0) return;
+                    const below = gameState.grid[y + 1]?.[x];
+                    expect(below === null || below?.phase === 'fall').toBe(true);
+                }));
+            }
+            expect(bottomRows(rows.length - 2).at(-1)).toBe('1.....');
+        }
+    });
+
     it('お邪魔ブロックは入れ替えられない', () => {
         start(['......', '012012'], { mode: 'versus', seed: 1 });
         receiveGarbage([{ width: 6, height: 1 }]);

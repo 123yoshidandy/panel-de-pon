@@ -351,14 +351,20 @@ function advanceGravity() {
                         put(x, y + 1, panel);
                         put(x, y, null);
                         panel.t = 0;
+                        // さらに下が埋まっていれば、ここで着地する（下のパネルに重ねて描かないように）
+                        if (!isOpen(x, y + 2) && at(x, y + 2)?.phase !== FALL) land(panel);
                     } else {
-                        setPhase(panel, IDLE);
-                        panel.bounce = LAND_BOUNCE_FRAMES;
+                        land(panel);
                     }
                     break;
             }
         }
     }
+}
+
+function land(panel) {
+    setPhase(panel, IDLE);
+    panel.bounce = LAND_BOUNCE_FRAMES;
 }
 
 // パネルの描画上のずれ（マス単位）。入れ替え中は元の位置から滑らせ、落下中は下へずらす
