@@ -1,7 +1,9 @@
 // オンライン対戦の画面（名前の入力・部屋の作成と参加、部屋の画面）
 
+import NetplayClient from './netplay/netplay-client.mjs';
+
 const NAME_KEY = 'panel-de-pon.name';
-const ROOM_CODE_PATTERN = /^\d{5}$/;
+const ROOM_CODE_LENGTH = NetplayClient.ROOM_CODE_LENGTH;
 
 let screen = null;
 
@@ -39,10 +41,10 @@ function bindActions(element, actions) {
     }
 }
 
-// 招待URLの部屋番号（?room=12345）
+// 招待URLの部屋番号（?room=1234）
 export function getInvitedRoomCode() {
-    const code = new URLSearchParams(location.search).get('room') ?? '';
-    return ROOM_CODE_PATTERN.test(code) ? code : '';
+    const code = (new URLSearchParams(location.search).get('room') ?? '').trim();
+    return NetplayClient.isRoomCode(code) ? code : '';
 }
 
 // 入口の画面。onCreate(name) / onJoin(roomCode, name) / onBack()
@@ -57,7 +59,7 @@ export function showOnlineEntry({ onCreate, onJoin, onBack }) {
             <button type="button" class="online-button" data-action="create">部屋を作る</button>
             <div class="online-or">または</div>
             <label class="online-field">部屋番号
-                <input class="online-code" inputmode="numeric" maxlength="5" placeholder="数字5桁" value="${getInvitedRoomCode()}">
+                <input class="online-code" inputmode="numeric" maxlength="${ROOM_CODE_LENGTH}" placeholder="数字${ROOM_CODE_LENGTH}桁" value="${getInvitedRoomCode()}">
             </label>
             <button type="button" class="online-button" data-action="join">参加する</button>
             <p class="online-message"></p>
@@ -73,8 +75,8 @@ export function showOnlineEntry({ onCreate, onJoin, onBack }) {
         create: () => onCreate(name()),
         join: () => {
             const code = element.querySelector('.online-code').value.trim();
-            if (!ROOM_CODE_PATTERN.test(code)) {
-                setOnlineMessage('部屋番号は数字5桁で入れてください');
+            if (!NetplayClient.isRoomCode(code)) {
+                setOnlineMessage(`部屋番号は数字${ROOM_CODE_LENGTH}桁で入れてください`);
                 return;
             }
             onJoin(code, name());
