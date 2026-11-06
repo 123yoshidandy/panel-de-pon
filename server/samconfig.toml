@@ -5,4 +5,5 @@ stack_name = "panel-de-pon-online"
 region = "ap-northeast-1"
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
+s3_prefix = "panel-de-pon-online"
 confirm_changeset = true
