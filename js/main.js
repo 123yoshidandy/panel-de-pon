@@ -426,4 +426,7 @@ function enterRoom() {
     if (lobby) showRoom();
 }
 
+// iOS の Safari は touch-action・viewport だけではピンチで拡大するので、ジェスチャーを止める
+document.addEventListener('gesturestart', ev => ev.preventDefault());
+
 openTitle();
