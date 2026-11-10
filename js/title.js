@@ -8,7 +8,7 @@ let callbacks;
 let started = false;
 
 // タイトル画面を表示する（何度でも呼べる）。
-// 「1人プレイ」で onSolo(settings)、「オンライン対戦」で onOnline(settings) を呼ぶ
+// 「CPU対戦」で onSolo(settings)、「オンライン対戦」で onOnline(settings) を呼ぶ
 export function showTitle({ onSolo, onOnline }) {
     callbacks = { solo: onSolo, online: onOnline };
     started = false;
@@ -41,7 +41,7 @@ export function showTitle({ onSolo, onOnline }) {
             </figure>
             <div class="settings">${settingGroups}</div>
             <div class="start-buttons">
-                <button type="button" class="start-button" data-mode="solo">1人プレイ</button>
+                <button type="button" class="start-button" data-mode="solo">CPU対戦</button>
                 <button type="button" class="start-button online" data-mode="online">オンライン対戦</button>
             </div>
             <button type="button" class="help-link" data-action="help">遊び方・操作方法</button>
@@ -64,7 +64,7 @@ function readSettings() {
     return settings;
 }
 
-// mode は 'solo'（1人プレイ） | 'online'（オンライン対戦）
+// mode は 'solo'（CPU 対戦） | 'online'（オンライン対戦）
 function start(mode) {
     // フェードアウト中に再び押されても二重に開始しない
     if (started) return;

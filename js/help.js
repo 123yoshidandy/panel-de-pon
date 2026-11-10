@@ -35,7 +35,6 @@ export function showHelp({ versus = false, onClose = () => {} } = {}) {
                     <li>パネルが消えている間は、せり上がりが止まります</li>
                     <li>4つ以上を一度に消すと<strong>同時消し</strong>、消えたあとに落ちてきたパネルでまた消えると<strong>連鎖</strong>になります</li>
                     <li>お邪魔ブロックは、接しているパネルを消すとパネルに変わります</li>
-                    <li>1人プレイでは、時間とともに上のお邪魔ゲージが溜まり、満タンになるとお邪魔ブロックが降ってきます。連鎖や同時消しでゲージを減らせます</li>
                 </ul>
             </section>
             <section>
@@ -48,11 +47,12 @@ export function showHelp({ versus = false, onClose = () => {} } = {}) {
                 <p class="help-detail">段差をならすと、台を揺らして、高い列のパネルを隣の低い列へずらします</p>
             </section>
             <section>
-                <h3>オンライン対戦</h3>
+                <h3>対戦</h3>
                 <ul>
                     <li>連鎖や同時消しをすると、相手にお邪魔ブロックを送ります</li>
                     <li>送られてくるお邪魔ブロックは、降ってくる前に自分の連鎖や同時消しで打ち消せます</li>
                     <li>先にゲームオーバーになった方が負けです</li>
+                    <li>CPU対戦では、難易度でせり上がりの速さと CPU の強さが変わります</li>
                 </ul>
             </section>
             <button type="button" class="help-close" data-action="close">閉じる</button>

@@ -19,12 +19,6 @@ export const MIN_RAISE_TIME = 40; // 1段せり上がるまでのフレーム数
 export const MANUAL_RAISE_FRAMES = 18; // 長押しでせり上げるとき、1段にかかるフレーム数（難易度によらず同じ）
 
 // ===== お邪魔ブロック =====
-export const GARBAGE_GAUGE_MAX = 720; // ゲージが満タンになる（お邪魔ブロックが降る）までのフレーム数
-export const GARBAGE_GAUGE_WARNING = 0.75; // ゲージの警告表示を始める割合
-export const GAUGE_REDUCE_PER_COMBO = 60; // 同時消しで3個を超えた1個ごとにゲージを減らす量
-export const GAUGE_REDUCE_PER_CHAIN = 120; // n連鎖目で (n - 1) × この量だけゲージを減らす
-export const GARBAGE_MIN_WIDTH = 3;
-export const GARBAGE_MAX_WIDTH = 6;
 export const GARBAGE_CLEAR_FRAMES = 60; // 消去が始まってから、一番下の段がパネルに変わるまで
 export const THAW_FRAMES = 45; // お邪魔ブロックから変わったパネルが、落ち始めるまで止まっている時間
 

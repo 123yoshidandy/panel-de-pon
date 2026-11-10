@@ -1,23 +1,17 @@
 import {
-    WIDTH, HEIGHT, BLOCK_SIZE, LAND_BOUNCE_FRAMES, PANEL_STYLES, CHAIN_COLOR, COMBO_COLOR,
-    GARBAGE_GAUGE_MAX, GARBAGE_GAUGE_WARNING, SHAKE_FRAMES
+    WIDTH, HEIGHT, BLOCK_SIZE, LAND_BOUNCE_FRAMES, PANEL_STYLES, CHAIN_COLOR, COMBO_COLOR, SHAKE_FRAMES
 } from './constants.js';
 import {
     getRaiseOffset, flattenMovePosition, panelOffset, garbageOffset, clearProgress, CLEAR
 } from './game.js';
-import { isGarbageEnabled } from './settings.js';
 import { panelSprite, panelLayers, drawGarbage, pixelRatio } from './panel-art.js';
 
 const POP_EFFECT_FRAMES = 14; // 弾けたあとに輪と星が広がる時間
 const FONT = "'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif";
+const RESULT_LABELS = { rematch: '再戦', room: '部屋に戻る' }; // 勝敗の画面のボタン（オンライン対戦）
 
 export let canvas;
-export let gameOverElement;
-export let gaugeElement;
-let gaugeFillElement;
 let g;
-let scoreElement;
-let maxChainElement;
 
 // 対戦用（相手のフィールド・相手の名前・自分への予告・勝敗の表示）
 export let opponentCanvas;
@@ -30,9 +24,9 @@ let og;
 export let playMenuElement;
 let incomingKey = '';
 
-// 描画の初期化。onRestart・onBackToTitle はゲームオーバー画面、onRematch・onBackToRoom は対戦の勝敗画面、
+// 描画の初期化。onRematch・onBackToRoom は対戦の勝敗画面（CPU 対戦では「リトライ」「タイトルへ」）、
 // onHome・onHelp はプレイ中の画面の上のボタンで呼ばれる
-export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom, onHome, onHelp }) {
+export function initRenderer({ onRematch, onBackToRoom, onHome, onHelp }) {
     canvas = document.createElement('canvas');
     canvas.classList.add('field');
     g = canvas.getContext('2d');
@@ -62,38 +56,6 @@ export function initRenderer({ onRestart, onBackToTitle, onRematch, onBackToRoom
     versusResultElement.querySelector('[data-action="room"]').addEventListener('click', () => onBackToRoom());
     document.body.append(opponentCanvas, opponentLabel, incomingElement, versusResultElement);
     setVersusVisible(false);
-
-    // お邪魔ブロックのゲージ
-    gaugeElement = document.createElement('div');
-    gaugeElement.classList.add('garbage-gauge');
-    gaugeFillElement = document.createElement('div');
-    gaugeFillElement.classList.add('garbage-gauge-fill');
-    gaugeElement.append(gaugeFillElement);
-    document.body.append(gaugeElement);
-
-    gameOverElement = document.createElement('div');
-    gameOverElement.classList.add('message');
-    gameOverElement.innerHTML = `
-        <div class="message-card">
-            <div class="game-over-title">GAME OVER</div>
-            <div class="message-score">タイム <span class="game-over-time"></span>秒</div>
-            <div class="message-score">最大連鎖 <span class="game-over-chain"></span></div>
-            <div class="message-buttons">
-                <button type="button" class="message-button primary" data-action="restart">リトライ</button>
-                <button type="button" class="message-button" data-action="title">タイトルへ</button>
-            </div>
-        </div>
-    `;
-    scoreElement = gameOverElement.querySelector('.game-over-time');
-    maxChainElement = gameOverElement.querySelector('.game-over-chain');
-    const actions = { restart: onRestart, title: onBackToTitle };
-    for (const button of gameOverElement.querySelectorAll('.message-button')) {
-        button.addEventListener('click', () => {
-            button.blur();
-            actions[button.dataset.action]();
-        });
-    }
-    document.body.append(gameOverElement);
 
     playMenuElement = document.createElement('div');
     playMenuElement.classList.add('play-menu');
@@ -278,8 +240,6 @@ export function render(state, { countdown = 0 } = {}) {
         g.fillText(String(countdown), WIDTH * size / 2, HEIGHT * size / 2);
     }
 
-    gaugeElement.style.visibility = state.mode === 'solo' && isGarbageEnabled(state.settings) ? 'visible' : 'hidden';
-    renderGauge(state.garbageGauge / GARBAGE_GAUGE_MAX);
     if (state.mode === 'versus') renderIncoming(state.incoming);
 }
 
@@ -293,15 +253,11 @@ function renderIncoming(incoming) {
     ).join('');
 }
 
-// フィールドとゲージ・上のボタンを出すか（タイトルや部屋の画面の後ろに、前のゲームの盤面を残さないように）
+// フィールドと上のボタンを出すか（タイトルや部屋の画面の後ろに、前のゲームの盤面を残さないように）
 export function setFieldVisible(visible) {
     canvas.style.visibility = visible ? 'visible' : 'hidden';
     playMenuElement.style.visibility = visible ? 'visible' : 'hidden';
-    if (!visible) {
-        gaugeElement.style.visibility = 'hidden';
-        hideGameOver();
-        hideVersusResult();
-    }
+    if (!visible) hideVersusResult();
 }
 
 // 対戦用の表示（相手のフィールド・予告）を出すか
@@ -351,8 +307,11 @@ function drawMiniPanel(color, px, py, size) {
 }
 
 // 対戦の勝敗を表示する。title は 'WIN' など、score は勝ち数の表示、note は「相手を待っています」などの一言。
-// canRematch が false なら「もう1回」を押せなくする（押したあと・相手が部屋を出たあと）
-export function showVersusResult(title, score, { note = '', canRematch = true } = {}) {
+// canRematch が false なら「もう1回」を押せなくする（押したあと・相手が部屋を出たあと）。
+// labels でボタンの文字を変える（CPU 対戦では「リトライ」「タイトルへ」）
+export function showVersusResult(title, score, { note = '', canRematch = true, labels = RESULT_LABELS } = {}) {
+    versusResultElement.querySelector('[data-action="rematch"]').textContent = labels.rematch;
+    versusResultElement.querySelector('[data-action="room"]').textContent = labels.room;
     versusResultElement.querySelector('.versus-result-title').textContent = title;
     versusResultElement.querySelector('.versus-result-score').textContent = score;
     versusResultElement.querySelector('.versus-result-note').textContent = note;
@@ -367,22 +326,3 @@ export function hideVersusResult() {
     canvas.style.filter = '';
 }
 
-// お邪魔ブロックのゲージ（ratio は 0〜1）
-function renderGauge(ratio) {
-    gaugeFillElement.style.width = `${ratio * 100}%`;
-    gaugeElement.classList.toggle('warning', ratio >= GARBAGE_GAUGE_WARNING);
-    gaugeElement.classList.toggle('full', ratio >= 1);
-}
-
-// ゲームオーバー表示（seconds は耐えた秒数）
-export function showGameOver(seconds, maxChain) {
-    scoreElement.textContent = seconds.toFixed(1);
-    maxChainElement.textContent = maxChain;
-    gameOverElement.style.visibility = 'visible';
-    canvas.style.filter = `blur(${BLOCK_SIZE / 6}px) saturate(0.8)`;
-}
-
-export function hideGameOver() {
-    gameOverElement.style.visibility = 'hidden';
-    canvas.style.filter = '';
-}
