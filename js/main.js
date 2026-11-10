@@ -7,7 +7,7 @@ import { doLayout } from './layout.js';
 import { resetGame, updateGame, gameState, receiveGarbage, getSnapshot } from './game.js';
 import { showTitle } from './title.js';
 import { showHelp, showConfirm } from './help.js';
-import { showOnlineEntry, showLobby, setOnlineMessage, hideOnline } from './lobby.js';
+import { showOnlineEntry, showPublicRooms, isPublicRoomsShown, showLobby, setOnlineMessage, hideOnline } from './lobby.js';
 import NetplayClient from './netplay/netplay-client.mjs';
 import { getServerUrl } from './online-config.js';
 import { playEventSounds, playSound, setSoundEnabled, setBgmEnabled, startBgm, stopBgm } from './sound.js';
@@ -200,11 +200,7 @@ function openOnline(selected) {
     settings = selected;
     ensureSetup();
     scene = 'online';
-    showOnlineEntry({
-        onCreate: (name) => connectAnd(() => net.createRoom(name)),
-        onJoin: (roomCode, name) => connectAnd(() => net.joinRoom(roomCode, name)),
-        onBack: leaveOnline
-    });
+    showEntry();
     const serverUrl = getServerUrl();
     if (!serverUrl) {
         setOnlineMessage('オンライン対戦のサーバーが準備中です');
@@ -226,6 +222,43 @@ function openOnline(selected) {
     });
 }
 
+// オンライン対戦の入口（名前・部屋を作る・部屋番号で参加・公開の部屋を探す）
+function showEntry() {
+    showOnlineEntry({
+        onCreate: (name, options) => connectAnd(() => net.createRoom(name, options)),
+        onJoin: (roomCode, name) => connectAnd(() => net.joinRoom(roomCode, name)),
+        onFind: findRooms,
+        onBack: leaveOnline
+    });
+}
+
+// 公開の部屋の一覧を取って出す（開いたときと「更新」を押したときだけ取る）
+async function findRooms() {
+    if (!net) return;
+    const show = (rooms) => showPublicRooms({ rooms, onEnter: enterPublicRoom, onRefresh: findRooms, onBack: showEntry });
+    show(null);
+    try {
+        const rooms = await net.listRooms();
+        if (scene === 'online' && isPublicRoomsShown()) show(rooms);
+    } catch (error) {
+        if (scene === 'online' && isPublicRoomsShown()) {
+            show([]);
+            setOnlineMessage(error.message);
+        }
+    }
+}
+
+// 一覧の部屋に入る。押すまでに始まった・満員になった・消えた部屋なら、一覧を取り直して理由を出す
+async function enterPublicRoom(roomCode, name) {
+    setOnlineMessage('接続しています…');
+    try {
+        await net.enterRoom(roomCode, name);
+    } catch (error) {
+        if (['already_started', 'room_full', 'room_not_found'].includes(error.code)) await findRooms();
+        setOnlineMessage(error.message);
+    }
+}
+
 async function connectAnd(action) {
     if (!net) return;
     setOnlineMessage('接続しています…');
@@ -238,7 +271,9 @@ async function connectAnd(action) {
 
 // 部屋を出てタイトルへ戻る
 function leaveOnline() {
-    net?.leave();
+    // 一覧を見ただけで部屋に入っていなければ、接続を閉じるだけにする（退出を送ると「部屋に入っていません」が返る）
+    if (net?.isInRoom() || net?.session) net.leave();
+    else net?.close();
     net = null;
     lobby = null;
     matchId = null;
