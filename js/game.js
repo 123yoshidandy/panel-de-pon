@@ -6,17 +6,18 @@
  *   idle（止まっている）/ swap（入れ替え中）/ hover（空中で少し浮いている）/ fall（落ちている）
  *   / clear（そろって消えていく途中）/ thaw（お邪魔ブロックから変わった直後で止まっている）
  * 入れ替え中のマスの組と、そろって消えていくかたまりは、パネルとは別に一覧で持つ。
+ *
+ * 状態は gameState に1つ持つ。CPU 対戦では自分と CPU の2つの状態を作り、withGame で切り替えて進める。
  */
 
 import {
     WIDTH, HEIGHT, BLOCK_SIZE,
     SWAP_FRAMES, HOVER_FRAMES, FALL_STEP_FRAMES, FLASH_FRAMES, POP_START_FRAMES, POP_INTERVAL_FRAMES,
     LAND_BOUNCE_FRAMES, MIN_RAISE_TIME, MANUAL_RAISE_FRAMES,
-    GARBAGE_GAUGE_MAX, GAUGE_REDUCE_PER_COMBO, GAUGE_REDUCE_PER_CHAIN, GARBAGE_MIN_WIDTH, GARBAGE_MAX_WIDTH,
     GARBAGE_CLEAR_FRAMES, THAW_FRAMES, POPUP_FRAMES, MIN_COMBO, VERSUS_GARBAGE_DELAY,
     FLATTEN_WAIT_FRAMES, FLATTEN_SLIDE_FRAMES, FLATTEN_DROP_FRAMES, SHAKE_FRAMES
 } from './constants.js';
-import { DEFAULT_SETTINGS, getChoice, isGarbageEnabled } from './settings.js';
+import { DEFAULT_SETTINGS, getChoice } from './settings.js';
 import { createRandom } from './random.js';
 
 export const IDLE = 'idle';
@@ -26,9 +27,10 @@ export const FALL = 'fall';
 export const CLEAR = 'clear';
 export const THAW = 'thaw';
 
-export const gameState = {
+// 新しいゲームの状態（resetGame で中身を埋める）
+export const createGameState = () => ({
     settings: DEFAULT_SETTINGS, // 難易度など（settings.js）
-    mode: 'solo', // 'solo'（ひとりで遊ぶ） | 'versus'（対戦）
+    mode: 'solo', // 'solo'（ひとりで動かすテスト用。お邪魔ブロックは降らない） | 'versus'（対戦）
     random: Math.random, // パネルの並び用の乱数（対戦では相手と同じシード）
     miscRandom: Math.random, // お邪魔ブロックの位置などその他の乱数
     colorCount: 5,
@@ -37,7 +39,6 @@ export const gameState = {
     swaps: [], // 入れ替え中のマスの組 { x, y, t }（x と x + 1）
     clears: [], // そろって消えていくかたまり { cells: [{ x, y, panel }], t }
     garbages: [], // お邪魔ブロック { kind, x, y（一番上の段）, width, height, falling, clearing, t }
-    garbageGauge: 0, // GARBAGE_GAUGE_MAX まで溜まるとお邪魔ブロックが降る（ひとりで遊ぶとき）
     incoming: [], // 対戦相手から送られてきて、まだ降っていないお邪魔ブロック { width, height, wait }
     chain: 1, // 今の連鎖数
     maxChain: 1,
@@ -51,7 +52,21 @@ export const gameState = {
     flattenMoves: [], // 平滑化で移っているパネル { color, fromX, fromY, toX, toY, duration }
     flattenFrame: 0, // 平滑化の移動が始まってからのフレーム数
     shakeFrame: 0 // 平滑化でフィールドが揺れる残りフレーム数
-};
+});
+
+// 今進めている（描いている）ゲームの状態
+export let gameState = createGameState();
+
+// state を今のゲームにして fn を呼ぶ（終わったら元に戻す）。CPU 対戦で、CPU の盤面を進めるときに使う
+export function withGame(state, fn) {
+    const previous = gameState;
+    gameState = state;
+    try {
+        return fn();
+    } finally {
+        gameState = previous;
+    }
+}
 
 const emit = (type, props = {}) => gameState.events.push({ type, ...props });
 const clamp = (v, min, max) => Math.max(min, Math.min(v, max));
@@ -143,7 +158,6 @@ export function resetGame(settings = gameState.settings, { mode = 'solo', seed }
         swaps: [],
         clears: [],
         garbages: [],
-        garbageGauge: 0,
         incoming: [],
         chain: 1,
         maxChain: 1,
@@ -287,7 +301,6 @@ function findMatches() {
         gameState.popups.push({ x: top.x, y: isCombo ? top.y - 1 : top.y, kind: 'chain', value: gameState.chain, t: 0 });
         emit('chain', { value: gameState.chain });
     }
-    reduceGarbageGauge(count, isChain ? gameState.chain : 1);
     if (gameState.mode === 'versus') attack(comboAttack(count));
     return count;
 }
@@ -396,13 +409,6 @@ function settleChain() {
     gameState.popups = gameState.popups.filter(popup => popup.t < POPUP_FRAMES);
 }
 
-// 同時消し・連鎖に応じてお邪魔ブロックのゲージを減らす
-function reduceGarbageGauge(count, chain) {
-    const reduction = Math.max(0, count - (MIN_COMBO - 1)) * GAUGE_REDUCE_PER_COMBO
-        + (chain - 1) * GAUGE_REDUCE_PER_CHAIN;
-    gameState.garbageGauge = Math.max(0, gameState.garbageGauge - reduction);
-}
-
 // ===== お邪魔ブロック =====
 
 const garbageColumns = (garbage) => Array.from({ length: garbage.width }, (_, i) => garbage.x + i);
@@ -483,18 +489,7 @@ function advanceGarbages() {
         }
     }
 
-    if (gameState.mode === 'versus') {
-        dropIncomingGarbage();
-        return;
-    }
-    // ひとりで遊ぶとき：ゲージが満タンになったら降らせる（置けなければ満タンのまま待つ）
-    if (!isGarbageEnabled(gameState.settings)) return;
-    const rate = getChoice(gameState.settings, 'difficulty').gaugeRate;
-    gameState.garbageGauge = Math.min(gameState.garbageGauge + rate, GARBAGE_GAUGE_MAX);
-    if (gameState.garbageGauge >= GARBAGE_GAUGE_MAX) {
-        const width = GARBAGE_MIN_WIDTH + Math.floor(gameState.miscRandom() * (GARBAGE_MAX_WIDTH - GARBAGE_MIN_WIDTH + 1));
-        if (spawnGarbage(width, 1)) gameState.garbageGauge = 0;
-    }
+    if (gameState.mode === 'versus') dropIncomingGarbage();
 }
 
 // お邪魔ブロックの描画上の Y のずれ（マス単位）
